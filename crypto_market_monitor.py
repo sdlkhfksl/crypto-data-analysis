@@ -1,15 +1,21 @@
+import os
 import requests
-import time
 import logging
 import schedule
-from datetime import datetime
+import time
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 配置日志记录
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
+    logging.FileHandler("news_economic.txt", mode='w'),  # 覆盖写入 news_economic.txt
+    logging.StreamHandler()
+])
 
-API_KEY = 'YOUR_API_KEY'
-BASE_URL = 'https://www.alphavantage.co/query'
-FEAR_GREED_URL = 'https://api.alternative.me/fng/?limit=1'
+# 设置API密钥
+API_KEY = os.getenv('API_KEY')
 
 # 获取实际国内生产总值（Real GDP）
 def get_real_gdp():
@@ -18,7 +24,7 @@ def get_real_gdp():
         'interval': 'annual',
         'apikey': API_KEY
     }
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get('https://www.alphavantage.co/query', params=params)
     return response.json()
 
 # 获取失业率（Unemployment Rate）
@@ -28,7 +34,7 @@ def get_unemployment_rate():
         'interval': 'monthly',
         'apikey': API_KEY
     }
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get('https://www.alphavantage.co/query', params=params)
     return response.json()
 
 # 获取通货膨胀率（Inflation Rate）
@@ -37,7 +43,7 @@ def get_inflation():
         'function': 'INFLATION',
         'apikey': API_KEY
     }
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get('https://www.alphavantage.co/query', params=params)
     return response.json()
 
 # 获取消费者价格指数（CPI）
@@ -47,12 +53,12 @@ def get_cpi():
         'interval': 'monthly',
         'apikey': API_KEY
     }
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get('https://www.alphavantage.co/query', params=params)
     return response.json()
 
 # 获取恐惧与贪婪指数（Fear & Greed Index）
 def get_fear_greed_index():
-    response = requests.get(FEAR_GREED_URL)
+    response = requests.get('https://api.alternative.me/fng/?limit=1')
     return response.json()
 
 # 获取VIX指数（Volatility Index）
@@ -62,10 +68,10 @@ def get_vix():
         'interval': 'daily',
         'apikey': API_KEY
     }
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get('https://www.alphavantage.co/query', params=params)
     return response.json()
 
-# 检查并记录数据
+# 检查并记录经济数据
 def check_and_log_data():
     indicators = {
         'Real GDP': get_real_gdp,
@@ -89,7 +95,7 @@ def check_and_log_data():
         logging.info('\n' + '-'*80 + '\n')
 
 # 定时任务设置
-schedule.every(1).hours.do(check_and_log_data)  # 每小时检查和记录一次
+schedule.every().hour.do(check_and_log_data)  # 每小时检查和记录经济数据
 
 if __name__ == "__main__":
     while True:
