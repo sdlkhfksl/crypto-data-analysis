@@ -1,15 +1,18 @@
 import os
 import requests
-import time
 import logging
 import schedule
+import time
 from dotenv import load_dotenv
 
 # 加载环境变量
 load_dotenv()
 
 # 配置日志记录
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
+    logging.FileHandler("news_transfers.txt", mode='w'),  # 覆盖写入 news_transfers.txt
+    logging.StreamHandler()
+])
 
 # 设置API密钥和监控地址
 ETHERSCAN_API_KEY = os.getenv('ETHERSCAN_API_KEY')
