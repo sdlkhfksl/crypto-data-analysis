@@ -1,0 +1,50 @@
+name: Scheduled Tasks
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 每小时运行一次
+  workflow_dispatch:
+
+jobs:
+  monitor_economic_data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+      - name: Run economic data monitor
+        run: python monitor_economic_data.py
+
+  monitor_transfers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+      - name: Run transfers monitor
+        run: python monitor_transfers.py
+
+  process_and_send_data:
+    runs-on: ubuntu-latest
+    needs: [monitor_economic_data, monitor_transfers]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install dependencies
+        run: pip install requests python-dotenv openai
+      - name: Run data processing and send to Telegram
+        run: python process_and_send_data.py
