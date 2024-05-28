@@ -25,10 +25,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install openai==1.14.2 PyGithub feedparser requests python-dotenv
 
+      - name: List directory for debug
+        run: ls -R  # 列出所有文件和目录
+
       - name: Run script
         env:
           API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
           BASE_API_URL: ${{ secrets.BASE_API_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python news.py  # Change to your script file name
+        run: python news.py  # 确保你的Python脚本文件名和路径正确
