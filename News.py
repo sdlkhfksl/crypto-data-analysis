@@ -7,6 +7,7 @@ import logging
 from collections import deque
 from openai import OpenAI
 from github import Github
+from xml.etree import ElementTree as ET
 
 # Configuration from environment variables
 API_SECRET_KEY = os.getenv("API_SECRET_KEY")
@@ -71,10 +72,21 @@ def process_url_with_openai(url, client):
 
 def update_github_rss_feed(repo, articles):
     """Update the GitHub repository with the latest RSS feed."""
-    feed_content = '<?xml version="1.0" encoding="UTF-8" ?><rss version="2.0"><channel><title>CryptoPanic News</title>'
+    root = ET.Element("rss", version="2.0")
+    channel = ET.SubElement(root, "channel")
+    ET.SubElement(channel, "title").text = "CryptoPanic News"
+    ET.SubElement(channel, "link").text = "https://cryptopanic.com"
+    ET.SubElement(channel, "description").text = "Latest news from CryptoPanic"
+    
     for article in articles:
-        feed_content += f'<item><title>{article["title"]}</title><link>{article["link"]}</link><pubDate>{article["pub_date"]}</pubDate><description><![CDATA[{article["content"]}]]></description></item>'
-    feed_content += '</channel></rss>'
+        item = ET.SubElement(channel, "item")
+        ET.SubElement(item, "title").text = article["title"]
+        ET.SubElement(item, "link").text = article["link"]
+        ET.SubElement(item, "pubDate").text = article["pub_date"]
+        ET.SubElement(item, "description").text = article["content"]
+    
+    tree = ET.ElementTree(root)
+    feed_content = ET.tostring(root, encoding='utf-8', method='xml').decode()
     
     try:
         contents = repo.get_contents("rss_feed.xml")
