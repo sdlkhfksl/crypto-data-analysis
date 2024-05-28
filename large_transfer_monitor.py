@@ -24,8 +24,26 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
 OPENAI_BASE_API_URL = os.getenv('OPENAI_BASE_API_URL')
-ETH_THRESHOLD = float(os.getenv('ETH_THRESHOLD', '100'))  # 以太坊大额转账的阈值（单位：ETH）
-BTC_THRESHOLD = float(os.getenv('BTC_THRESHOLD', '10'))   # 比特币大额转账的阈值（单位：BTC）
+
+# 设定默认阈值
+default_eth_threshold = 100  # 默认100 ETH
+default_btc_threshold = 10   # 默认10 BTC
+
+# 设置监控的ETH和BTC转账阈值
+eth_threshold_str = os.getenv('ETH_THRESHOLD', str(default_eth_threshold))
+btc_threshold_str = os.getenv('BTC_THRESHOLD', str(default_btc_threshold))
+
+try:
+    ETH_THRESHOLD = float(eth_threshold_str)
+except ValueError:
+    logging.error(f"Invalid ETH_THRESHOLD value: {eth_threshold_str}. Defaulting to {default_eth_threshold}.")
+    ETH_THRESHOLD = default_eth_threshold
+
+try:
+    BTC_THRESHOLD = float(btc_threshold_str)
+except ValueError:
+    logging.error(f"Invalid BTC_THRESHOLD value: {btc_threshold_str}. Defaulting to {default_btc_threshold}.")
+    BTC_THRESHOLD = default_btc_threshold
 
 # 设置OpenAI密钥
 openai.api_key = OPENAI_API_SECRET_KEY
@@ -57,7 +75,7 @@ def check_ethereum_large_transfers(threshold_eth):
 
 # 检查最近区块链上的比特币大额转账
 def check_bitcoin_large_transfers(threshold_btc):
-    url = f'https://api.blockcypher.com/v1/btc/main/txs/{BTC_ADDRESS}?token={BLOCKCYPHER_API_KEY}'
+    url = f'https://api.blockcypher.com/v1/btc/main/full?token={BLOCKCYPHER_API_KEY}'
     response = requests.get(url)
     if response.status_code == 200:
         transactions = response.json().get('txs', [])
@@ -93,7 +111,7 @@ def send_message_to_telegram(message):
 def process_with_gpt(real_url):
     try:
         client = openai
-        stream = client.ChatCompletion.create(
+        stream = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": real_url}],
             stream=True,
