@@ -116,8 +116,17 @@ def generate_signal(sentiment_score, title, content, keywords):
 keywords = [
     "bitcoin", "btc", "ethereum", "eth", "dogecoin", "doge", "uniswap", "shiba-inu", "shib", "ripple", "xrp", 
     "binancecoin", "bnb", "cardano", "ada", "worldcoin-wld", "solana", "sol", "avalanche-2", "avax", "polkadot", 
-    "dot", "the-open-network", "ton", "regulation", "policy", "government", "ban", "legal", "law", "approval", 
-    "tax", "sanction", "sec", "cftc", "elon musk", "whale transfer", "whale transaction"
+    "dot", "the-open-network", "ton", "santiment", "grayscale", "federal reserve", "us federal reserve",
+    "federal reserve rate hike", "interest rate hike", "us treasury department", "treasury department",
+    "regulation", "policy", "government", "ban", "legal", "law", "approval", "tax", "sanction", "sec", "cftc", 
+    "elon musk", "whale transfer", "whale transaction",
+    "rate hike", "interest rate hike", "rate cut", "interest rate cut", "unemployment rate", "inflation rate",
+    "gross domestic product", "gdp", "consumer price index", "cpi", "producer price index", "ppi", 
+    "consumer sentiment index", "csi", "federal funds rate", "core inflation", "central bank", 
+    "monetary policy", "fiscal policy", "economic stimulus", "quantitative easing", "budget deficit", 
+    "trade deficit", "balance of payments", "income inequality", "stock market", "bond market", 
+    "currency market", "commodity market", "housing market", "labor market", "jobless claims", 
+    "economic indicators", "economic growth", "recession", "depression", "boom", "bust", "stagflation"
 ]
 
 # 发送消息到Telegram
