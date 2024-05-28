@@ -31,4 +31,4 @@ jobs:
           BASE_API_URL: ${{ secrets.BASE_API_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python your_script_name.py  # Change to your script file name
+        run: python news.py  # Change to your script file name
