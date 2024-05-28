@@ -157,7 +157,7 @@ def store_processed_links(processed_articles):
 def is_processed(link):
     if not os.path.exists('processed_links.txt'):
         return False
-    with open('processed_links.txt, 'r', encoding='utf-8') as file:
+    with open('processed_links.txt', 'r', encoding='utf-8') as file:
         processed_links = file.read().splitlines()
     return link in processed_links
 
