@@ -32,6 +32,6 @@ jobs:
         env:
           API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
           BASE_API_URL: ${{ secrets.BASE_API_URL }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python News.py  # 确保你的Python脚本文件名和路径正确
