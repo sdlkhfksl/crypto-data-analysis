@@ -1,103 +1,177 @@
 import os
 import requests
+import json
 import logging
-import schedule
-import time
+from datetime import datetime
 from dotenv import load_dotenv
+import openai
 
 # 加载环境变量
 load_dotenv()
 
 # 配置日志记录
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
-    logging.FileHandler("news_economic.txt", mode='w'),  # 覆盖写入 news_economic.txt
-    logging.StreamHandler()
-])
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# 设置API密钥
-API_KEY = os.getenv('API_KEY')
+# 设置API密钥和其他配置信息
+FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
+OPENAI_BASE_API_URL = os.getenv('OPENAI_BASE_API_URL')
+
+FINNHUB_BASE_URL = 'https://finnhub.io/api/v1'
+COINGECKO_URL = 'https://api.alternative.me/fng/?limit=1'
+NEWS_FILE_PATH = 'news_economic.txt'
+PROCESSED_FILE_PATH = 'processed.txt'
 
 # 获取实际国内生产总值（Real GDP）
 def get_real_gdp():
+    url = f"{FINNHUB_BASE_URL}/economic"
     params = {
-        'function': 'REAL_GDP',
-        'interval': 'annual',
-        'apikey': API_KEY
+        'symbol': 'GDP',
+        'token': FINNHUB_API_KEY
     }
-    response = requests.get('https://www.alphavantage.co/query', params=params)
-    return response.json()
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        logging.error(f"Failed to fetch Real GDP data: {response.text}")
+        return None
 
 # 获取失业率（Unemployment Rate）
 def get_unemployment_rate():
+    url = f"{FINNHUB_BASE_URL}/economic"
     params = {
-        'function': 'UNEMPLOYMENT',
-        'interval': 'monthly',
-        'apikey': API_KEY
+        'symbol': 'UNRATE',
+        'token': FINNHUB_API_KEY
     }
-    response = requests.get('https://www.alphavantage.co/query', params=params)
-    return response.json()
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        logging.error(f"Failed to fetch Unemployment Rate data: {response.text}")
+        return None
 
 # 获取通货膨胀率（Inflation Rate）
 def get_inflation():
+    url = f"{FINNHUB_BASE_URL}/economic"
     params = {
-        'function': 'INFLATION',
-        'apikey': API_KEY
+        'symbol': 'CPIAUCSL',
+        'token': FINNHUB_API_KEY
     }
-    response = requests.get('https://www.alphavantage.co/query', params=params)
-    return response.json()
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        logging.error(f"Failed to fetch Inflation Rate data: {response.text}")
+        return None
 
 # 获取消费者价格指数（CPI）
 def get_cpi():
+    url = f"{FINNHUB_BASE_URL}/economic"
     params = {
-        'function': 'CPI',
-        'interval': 'monthly',
-        'apikey': API_KEY
+        'symbol': 'CPI',
+        'token': FINNHUB_API_KEY
     }
-    response = requests.get('https://www.alphavantage.co/query', params=params)
-    return response.json()
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        logging.error(f"Failed to fetch CPI data: {response.text}")
+        return None
 
 # 获取恐惧与贪婪指数（Fear & Greed Index）
 def get_fear_greed_index():
-    response = requests.get('https://api.alternative.me/fng/?limit=1')
-    return response.json()
+    response = requests.get(COINGECKO_URL)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        logging.error(f"Failed to fetch Fear & Greed Index data: {response.text}")
+        return None
 
-# 获取VIX指数（Volatility Index）
-def get_vix():
-    params = {
-        'function': 'VIX',
-        'interval': 'daily',
-        'apikey': API_KEY
+# 发送消息到Telegram
+def send_message_to_telegram(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "disable_notification": True
     }
-    response = requests.get('https://www.alphavantage.co/query', params=params)
-    return response.json()
+    try:
+        response = requests.post(url, json=payload)
+        return response.status_code == 200
+    except Exception as e:
+        logging.error(f"Failed to send message to Telegram: {e}")
+        return False
+
+# 利用OpenAI GPT模型处理数据
+def process_with_gpt(real_url):
+    try:
+        client = openai
+        stream = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"content": real_url}],
+            stream=True,
+        )
+
+        content = ""
+        for chunk in stream:
+            if hasattr(chunk, 'choices'):
+                choices = chunk.choices
+                if len(choices) > 0:
+                    content = choices[0].message['content']
+        return content
+    except Exception as e:
+        logging.error(f"Error processing with GPT: {e}")
+        return None
 
 # 检查并记录经济数据
 def check_and_log_data():
-    indicators = {
-        'Real GDP': get_real_gdp,
-        'Unemployment Rate': get_unemployment_rate,
-        'Inflation Rate': get_inflation,
-        'Consumer Price Index (CPI)': get_cpi,
-        'Fear & Greed Index': get_fear_greed_index,
-        'Volatility Index (VIX)': get_vix
+    data = {
+        'Real GDP': get_real_gdp(),
+        'Unemployment Rate': get_unemployment_rate(),
+        'Inflation Rate': get_inflation(),
+        'Consumer Price Index (CPI)': get_cpi(),
+        'Fear & Greed Index': get_fear_greed_index()
     }
-    
-    for name, func in indicators.items():
-        logging.info(f'Fetching {name} data...')
-        
-        try:
-            data = func()
-            logging.info(f'{name} Data:')
-            logging.info(data)
-        except Exception as e:
-            logging.error(f'Error fetching {name}: {e}')
-        
-        logging.info('\n' + '-'*80 + '\n')
 
-# 定时任务设置
-schedule.every().hour.do(check_and_log_data)  # 每小时检查和记录经济数据
+    # 检查是否有获取不到的数据
+    if any(value is None for value in data.values()):
+        logging.error("Some of the economic data is None, skipping...")
+        return
+
+    new_data_json = json.dumps(data, indent=2)
+
+    # 读取文件中的现有数据
+    if os.path.exists(NEWS_FILE_PATH):
+        with open(NEWS_FILE_PATH, 'r') as file:
+            existing_data_json = file.read()
+    else:
+        existing_data_json = ""
+
+    # 如果数据没有变化则跳过进一步处理
+    if new_data_json == existing_data_json:
+        logging.info("No changes in data, skipping further processing.")
+    else:
+        # 将新的数据写入news_economic.txt
+        with open(NEWS_FILE_PATH, 'w') as file:
+            file.write(new_data_json)
+
+        # 利用OpenAI处理数据内容
+        news_file_url = 'https://raw.githubusercontent.com/sdlkhfksl/crypto-data-analysis/main/news_economic.txt'
+        gpt_content = process_with_gpt(news_file_url)
+        if gpt_content:
+            # 发送消息到Telegram
+            if send_message_to_telegram(gpt_content):
+                logging.info("Message sent to Telegram successfully.")
+
+            # 追加存储处理后的数据到 processed.txt
+            with open(PROCESSED_FILE_PATH, 'a') as file:
+                file.write(f"\nTimestamp: {datetime.now()}\n")
+                file.write(gpt_content)
+                file.write("\n" + "-"*80 + "\n")
+        else:
+            logging.error("Failed to process data with GPT.")
 
 if __name__ == "__main__":
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+    check_and_log_data()
