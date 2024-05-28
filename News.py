@@ -56,7 +56,7 @@ def fetch_rss_feed(url):
 def process_url_with_openai(url, client):
     """Process URL using OpenAI's GPT model."""
     try:
-        response = client.chat.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "system", "content": "Generate a summary for this URL."}, {"role": "user", "content": url}],
             stream=True,
