@@ -12,7 +12,7 @@ from xml.etree import ElementTree as ET
 # Configuration from environment variables
 API_SECRET_KEY = os.getenv("API_SECRET_KEY")
 BASE_API_URL = os.getenv("BASE_API_URL")
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_TOKEN = os.getenv("PAT_GITHUB_TOKEN")
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 RSS_FEED_URL = 'https://cryptopanic.com/news/rss/'
 PROCESSED_URLS_FILE = 'processed_urls.txt'
