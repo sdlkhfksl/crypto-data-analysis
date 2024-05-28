@@ -12,7 +12,6 @@ from github import Github
 API_SECRET_KEY = os.getenv("API_SECRET_KEY")
 BASE_API_URL = os.getenv("BASE_API_URL")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 RSS_FEED_URL = 'https://cryptopanic.com/news/rss/'
 
 # OpenAI API Client Initialization
@@ -108,7 +107,7 @@ while True:
                     
                     # Authenticate to GitHub and update the repository
                     g = Github(GITHUB_TOKEN)
-                    repo = g.get_repo(GITHUB_REPOSITORY)
+                    repo = g.get_repo(os.getenv("GITHUB_REPOSITORY"))
                     update_github_rss_feed(repo, articles)
                 
                 time.sleep(10)  # Rate-limit our requests
