@@ -24,8 +24,8 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
 OPENAI_BASE_API_URL = os.getenv('OPENAI_BASE_API_URL')
-ETH_ADDRESS = os.getenv('ETH_ADDRESS')
-BTC_ADDRESS = os.getenv('BTC_ADDRESS')
+ETH_ADDRESS = os.getenv('ETH_ADDRESS', 'default_ethereum_address')
+BTC_ADDRESS = os.getenv('BTC_ADDRESS', 'default_bitcoin_address')
 ETH_THRESHOLD = float(os.getenv('ETH_THRESHOLD', '100'))  # 以太坊大额转账的阈值（单位：ETH）
 BTC_THRESHOLD = float(os.getenv('BTC_THRESHOLD', '10'))   # 比特币大额转账的阈值（单位：BTC）
 
