@@ -65,7 +65,6 @@ def fetch_article_content(url):
     soup = BeautifulSoup(response.text, 'html.parser')
     pub_date = find_publication_date(soup)
 
-    formatted_content = f'Title: {title}\nPublication Date: {pub_date}\n\n{content}'
     return title, content, pub_date
 
 def find_publication_date(soup):
@@ -175,11 +174,11 @@ def get_real_url(re_url):
 def main():
     links_file_url = RSS_FEED_URL
 
+    # 获取和处理RSS feed
     links = fetch_article_links(links_file_url)
     if not links:
         return
 
-    # 获取和处理CryptoPanic的RSS feed
     feed_url = 'https://cryptopanic.com/news/rss/'
     feed = feedparser.parse(feed_url)
 
