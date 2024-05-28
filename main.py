@@ -221,10 +221,6 @@ def main():
 
     store_processed_links(processed_articles)
 
-# 定时任务调度
-schedule.every(30).minutes.do(main)
+# 调用主函数
+main()
 
-if __name__ == "__main__":
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
