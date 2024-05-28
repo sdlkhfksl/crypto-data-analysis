@@ -11,6 +11,8 @@ from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 import schedule
 import time
+from collections import deque
+import re
 
 # 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -151,6 +153,24 @@ def is_processed(link):
         processed_links = file.read().splitlines()
     return link in processed_links
 
+# 重新格式化和获取真实链接的方法
+def reformat_url(url):
+    result = re.sub(r'https://cryptopanic.com/news/(\d+)/.*', r'https://cryptopanic.com/news/click/\1/', url)
+    return result
+
+def get_real_url(re_url):
+    """Retrieve the final URL after following redirects, with retry mechanism."""
+    for attempt in range(3):
+        time.sleep(10)  # 添加的延时
+        try:
+            response = requests.get(re_url, timeout=5)
+            response.raise_for_status()
+            return response.url
+        except requests.exceptions.RequestException as e:
+            logging.error(f'Error fetching real URL, attempt {attempt + 1}: {e}')
+            if attempt == 2:
+                return None  # 如果三次重试均失败，返回None
+
 # 主函数
 def main():
     links_file_url = RSS_FEED_URL
@@ -158,6 +178,27 @@ def main():
     links = fetch_article_links(links_file_url)
     if not links:
         return
+
+    # 获取和处理CryptoPanic的RSS feed
+    feed_url = 'https://cryptopanic.com/news/rss/'
+    feed = feedparser.parse(feed_url)
+
+    try:
+        with open('accumulated_links.txt', 'r') as file:
+            accumulated_links = deque(file.read().splitlines(), maxlen=30)
+    except FileNotFoundError:
+        accumulated_links = deque(maxlen=30)
+
+    for entry in feed.entries:
+        formatted_url = reformat_url(entry.link)
+        final_url = get_real_url(formatted_url)
+        
+        if final_url and final_url not in accumulated_links:
+            accumulated_links.append(final_url)  # 添加新链接到deque中
+
+    with open('accumulated_links.txt', 'w') as file:
+        for link in accumulated_links:
+            file.write(link + '\n')
 
     processed_articles = []
 
