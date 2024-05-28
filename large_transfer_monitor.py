@@ -24,26 +24,23 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
 OPENAI_BASE_API_URL = os.getenv('OPENAI_BASE_API_URL')
-ETH_ADDRESS = os.getenv('ETH_ADDRESS', 'default_ethereum_address')
-BTC_ADDRESS = os.getenv('BTC_ADDRESS', 'default_bitcoin_address')
 ETH_THRESHOLD = float(os.getenv('ETH_THRESHOLD', '100'))  # 以太坊大额转账的阈值（单位：ETH）
 BTC_THRESHOLD = float(os.getenv('BTC_THRESHOLD', '10'))   # 比特币大额转账的阈值（单位：BTC）
 
 # 设置OpenAI密钥
 openai.api_key = OPENAI_API_SECRET_KEY
 
-# 检查以太坊大额转账
-def check_ethereum_large_transfers(address, threshold_eth):
+# 检查最近区块链上的以太坊大额转账
+def check_ethereum_large_transfers(threshold_eth):
     params = {
         'module': 'account',
-        'action': 'txlist',
-        'address': address,
+        'action': 'txlistinternal',
         'startblock': 0,
         'endblock': 99999999,
         'sort': 'desc',
         'apikey': ETHERSCAN_API_KEY
     }
-    response = requests.get(ETHERSCAN_BASE_URL, params=params)
+    response = requests.get('https://api.etherscan.io/api', params=params)
     if response.status_code == 200:
         transactions = response.json().get('result', [])
         large_transactions = []
@@ -58,9 +55,9 @@ def check_ethereum_large_transfers(address, threshold_eth):
         logging.error(f"Error fetching Ethereum transactions: {response.status_code}")
         return []
 
-# 检查比特币大额转账
-def check_bitcoin_large_transfers(address, threshold_btc):
-    url = f'{BLOCKCYPHER_BASE_URL}/addrs/{address}/full?token={BLOCKCYPHER_API_KEY}'
+# 检查最近区块链上的比特币大额转账
+def check_bitcoin_large_transfers(threshold_btc):
+    url = f'https://api.blockcypher.com/v1/btc/main/txs/{BTC_ADDRESS}?token={BLOCKCYPHER_API_KEY}'
     response = requests.get(url)
     if response.status_code == 200:
         transactions = response.json().get('txs', [])
@@ -96,9 +93,9 @@ def send_message_to_telegram(message):
 def process_with_gpt(real_url):
     try:
         client = openai
-        stream = client.chat.completions.create(
+        stream = client.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"content": real_url}],
+            messages=[{"role": "user", "content": real_url}],
             stream=True,
         )
 
@@ -107,16 +104,16 @@ def process_with_gpt(real_url):
             if hasattr(chunk, 'choices'):
                 choices = chunk.choices
                 if len(choices) > 0:
-                    content = choices[0].message['content']
+                    content += choices[0].message['content']
         return content
     except Exception as e:
         logging.error(f"Error processing with GPT: {e}")
         return None
 
-# 检查并记录经济数据
+# 检查并记录大额交易数据
 def check_and_log_data():
-    eth_transactions = check_ethereum_large_transfers(ETH_ADDRESS, ETH_THRESHOLD)
-    btc_transactions = check_bitcoin_large_transfers(BTC_ADDRESS, BTC_THRESHOLD)
+    eth_transactions = check_ethereum_large_transfers(ETH_THRESHOLD)
+    btc_transactions = check_bitcoin_large_transfers(BTC_THRESHOLD)
 
     # 检查交易是否存在
     if not eth_transactions and not btc_transactions:
