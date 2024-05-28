@@ -1,9 +1,12 @@
 import os
 import requests
+import json
 import logging
 import schedule
 import time
+from datetime import datetime
 from dotenv import load_dotenv
+import openai
 
 # 加载环境变量
 load_dotenv()
@@ -17,12 +20,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # 设置API密钥和监控地址
 ETHERSCAN_API_KEY = os.getenv('ETHERSCAN_API_KEY')
 BLOCKCYPHER_API_KEY = os.getenv('BLOCKCYPHER_API_KEY')
-ETHERSCAN_BASE_URL = 'https://api.etherscan.io/api'
-BLOCKCYPHER_BASE_URL = 'https://api.blockcypher.com/v1/btc/main'
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
+OPENAI_BASE_API_URL = os.getenv('OPENAI_BASE_API_URL')
 ETH_ADDRESS = os.getenv('ETH_ADDRESS')
 BTC_ADDRESS = os.getenv('BTC_ADDRESS')
 ETH_THRESHOLD = float(os.getenv('ETH_THRESHOLD', '100'))  # 以太坊大额转账的阈值（单位：ETH）
 BTC_THRESHOLD = float(os.getenv('BTC_THRESHOLD', '10'))   # 比特币大额转账的阈值（单位：BTC）
+
+# 设置OpenAI密钥
+openai.api_key = OPENAI_API_SECRET_KEY
 
 # 检查以太坊大额转账
 def check_ethereum_large_transfers(address, threshold_eth):
@@ -38,12 +46,17 @@ def check_ethereum_large_transfers(address, threshold_eth):
     response = requests.get(ETHERSCAN_BASE_URL, params=params)
     if response.status_code == 200:
         transactions = response.json().get('result', [])
+        large_transactions = []
         for tx in transactions:
             value_eth = int(tx['value']) / 10**18  # 将 Wei 转换为以太坊
             if value_eth >= threshold_eth:
-                logging.info(f'Large ETH Transaction: From {tx["from"]} to {tx["to"]}, Value: {value_eth} ETH, Hash: {tx["hash"]}')
+                tx_info = f'Large ETH Transaction: From {tx["from"]} to {tx["to"]}, Value: {value_eth} ETH, Hash: {tx["hash"]}'
+                logging.info(tx_info)
+                large_transactions.append(tx_info)
+        return large_transactions
     else:
         logging.error(f"Error fetching Ethereum transactions: {response.status_code}")
+        return []
 
 # 检查比特币大额转账
 def check_bitcoin_large_transfers(address, threshold_btc):
@@ -51,26 +64,105 @@ def check_bitcoin_large_transfers(address, threshold_btc):
     response = requests.get(url)
     if response.status_code == 200:
         transactions = response.json().get('txs', [])
+        large_transactions = []
         for tx in transactions:
             for out in tx['outputs']:
                 value_btc = out['value'] / 10**8  # 将 Satoshi 转换为比特币
                 if value_btc >= threshold_btc:
-                    logging.info(f'Large BTC Transaction: To {out["addresses"][0]}, Value: {value_btc} BTC, Hash: {tx["hash"]}')
+                    tx_info = f'Large BTC Transaction: To {out["addresses"][0]}, Value: {value_btc} BTC, Hash: {tx["hash"]}'
+                    logging.info(tx_info)
+                    large_transactions.append(tx_info)
+        return large_transactions
     else:
         logging.error(f"Error fetching Bitcoin transactions: {response.status_code}")
+        return []
 
-# 设置监控任务
-def monitor_large_transfers():
-    logging.info('Checking Ethereum large transfers...')
-    check_ethereum_large_transfers(ETH_ADDRESS, ETH_THRESHOLD)
+# 发送消息到Telegram
+def send_message_to_telegram(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "disable_notification": True
+    }
+    try:
+        response = requests.post(url, json=payload)
+        return response.status_code == 200
+    except Exception as e:
+        logging.error(f"Failed to send message to Telegram: {e}")
+        return False
 
-    logging.info('Checking Bitcoin large transfers...')
-    check_bitcoin_large_transfers(BTC_ADDRESS, BTC_THRESHOLD)
+# 利用OpenAI GPT模型处理数据
+def process_with_gpt(real_url):
+    try:
+        client = openai
+        stream = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"content": real_url}],
+            stream=True,
+        )
 
-# 定时任务设置
-schedule.every(10).minutes.do(monitor_large_transfers)  # 每10分钟检查一次大额转账
+        content = ""
+        for chunk in stream:
+            if hasattr(chunk, 'choices'):
+                choices = chunk.choices
+                if len(choices) > 0:
+                    content = choices[0].message['content']
+        return content
+    except Exception as e:
+        logging.error(f"Error processing with GPT: {e}")
+        return None
+
+# 检查并记录经济数据
+def check_and_log_data():
+    eth_transactions = check_ethereum_large_transfers(ETH_ADDRESS, ETH_THRESHOLD)
+    btc_transactions = check_bitcoin_large_transfers(BTC_ADDRESS, BTC_THRESHOLD)
+
+    # 检查交易是否存在
+    if not eth_transactions and not btc_transactions:
+        logging.info("No large transactions, skipping further processing.")
+        return
+
+    new_data_json = json.dumps({
+        'ethereum': eth_transactions,
+        'bitcoin': btc_transactions
+    }, indent=2)
+
+    # 读取文件中的现有数据
+    if os.path.exists("news_transfers.txt"):
+        with open("news_transfers.txt", 'r') as file:
+            existing_data_json = file.read()
+    else:
+        existing_data_json = ""
+
+    # 如果数据没有变化则跳过进一步处理
+    if new_data_json == existing_data_json:
+        logging.info("No changes in transaction data, skipping further processing.")
+    else:
+        # 将新的数据写入news_transfers.txt
+        with open("news_transfers.txt", 'w') as file:
+            file.write(new_data_json)
+
+        # 将文件URL传递给GPT处理
+        news_file_url = 'https://raw.githubusercontent.com/sdlkhfksl/crypto-data-analysis/main/news_transfers.txt'
+        gpt_content = process_with_gpt(news_file_url)
+        if gpt_content:
+            # 发送消息到Telegram
+            if send_message_to_telegram(gpt_content):
+                logging.info("Message sent to Telegram successfully.")
+
+            # 追加存储处理后的数据到 processed.txt
+            with open("processed.txt", 'a') as file:
+                file.write(f"\nTimestamp: {datetime.now()}\n")
+                file.write(gpt_content)
+                file.write("\n" + "-"*80 + "\n")
+        else:
+            logging.error("Failed to process data with GPT.")
 
 if __name__ == "__main__":
+    check_and_log_data()
+    # 调度定时任务，只在脚本运行时生效
+    schedule.every(10).minutes.do(check_and_log_data)
     while True:
         schedule.run_pending()
         time.sleep(1)
