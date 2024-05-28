@@ -1,9 +1,0 @@
-requests
-feedparser
-pandas
-spacy
-vaderSentiment
-readability-lxml
-beautifulsoup4
-schedule
-lxml[html_clean]
