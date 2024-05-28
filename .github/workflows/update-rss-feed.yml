@@ -34,4 +34,4 @@ jobs:
           BASE_API_URL: ${{ secrets.BASE_API_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python news.py  # 确保你的Python脚本文件名和路径正确
+        run: python News.py  # 确保你的Python脚本文件名和路径正确
