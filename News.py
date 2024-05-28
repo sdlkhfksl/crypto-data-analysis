@@ -14,6 +14,7 @@ API_SECRET_KEY = os.getenv("API_SECRET_KEY")
 BASE_API_URL = os.getenv("BASE_API_URL")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 RSS_FEED_URL = 'https://cryptopanic.com/news/rss/'
+PROCESSED_URLS_FILE = 'processed_urls.txt'
 
 # OpenAI API Client Initialization
 client = OpenAI(api_key=API_SECRET_KEY, base_url=BASE_API_URL)
@@ -95,6 +96,23 @@ def update_github_rss_feed(repo, articles):
     except Exception as e:
         logging.error(f'Error updating GitHub RSS feed: {e}')
 
+def load_processed_urls(filename):
+    """Load processed URLs from a file."""
+    try:
+        with open(filename, 'r') as file:
+            return deque(file.read().splitlines(), maxlen=50)
+    except FileNotFoundError:
+        return deque(maxlen=50)
+
+def save_processed_urls(filename, urls):
+    """Save processed URLs to a file."""
+    with open(filename, 'w') as file:
+        for url in urls:
+            file.write(url + '\n')
+
+# Load processed URLs from file
+processed_urls = load_processed_urls(PROCESSED_URLS_FILE)
+
 # Main Processing Loop
 while True:
     try:
@@ -121,6 +139,9 @@ while True:
                     g = Github(GITHUB_TOKEN)
                     repo = g.get_repo(os.getenv("GITHUB_REPOSITORY"))
                     update_github_rss_feed(repo, articles)
+                    
+                    # Save processed URLs to file
+                    save_processed_urls(PROCESSED_URLS_FILE, processed_urls)
                 
                 time.sleep(10)  # Rate-limit our requests
 
