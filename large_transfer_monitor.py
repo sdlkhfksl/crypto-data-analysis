@@ -18,78 +18,38 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 ])
 
 # 设置API密钥和监控地址
-ETHERSCAN_API_KEY = os.getenv('ETHERSCAN_API_KEY')
-BLOCKCYPHER_API_KEY = os.getenv('BLOCKCYPHER_API_KEY')
+COINGECKO_API_URL = os.getenv('COINGECKO_API_URL', 'https://api.coingecko.com/api/v3')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
 OPENAI_BASE_API_URL = os.getenv('OPENAI_BASE_API_URL')
+ETH_THRESHOLD = float(os.getenv('ETH_THRESHOLD', '100'))  # 以太坊大额转账的阈值（单位：ETH）
+BTC_THRESHOLD = float(os.getenv('BTC_THRESHOLD', '10'))   # 比特币大额转账的阈值（单位：BTC')
 
-# 设定默认阈值
-default_eth_threshold = 100  # 默认100 ETH
-default_btc_threshold = 10   # 默认10 BTC
-
-# 设置监控的ETH和BTC转账阈值
-eth_threshold_str = os.getenv('ETH_THRESHOLD', str(default_eth_threshold))
-btc_threshold_str = os.getenv('BTC_THRESHOLD', str(default_btc_threshold))
-
-try:
-    ETH_THRESHOLD = float(eth_threshold_str)
-except ValueError:
-    logging.error(f"Invalid ETH_THRESHOLD value: {eth_threshold_str}. Defaulting to {default_eth_threshold}.")
-    ETH_THRESHOLD = default_eth_threshold
-
-try:
-    BTC_THRESHOLD = float(btc_threshold_str)
-except ValueError:
-    logging.error(f"Invalid BTC_THRESHOLD value: {btc_threshold_str}. Defaulting to {default_btc_threshold}.")
-    BTC_THRESHOLD = default_btc_threshold
-
-# 设置OpenAI密钥
+# 设置OpenAI API端点和密钥
 openai.api_key = OPENAI_API_SECRET_KEY
+openai.api_base = OPENAI_BASE_API_URL
 
 # 检查最近区块链上的以太坊大额转账
-def check_ethereum_large_transfers(threshold_eth):
+def check_large_transfers(coin_id, threshold):
+    url = f"{COINGECKO_API_URL}/coins/{coin_id}/market_chart"
     params = {
-        'module': 'account',
-        'action': 'txlistinternal',
-        'startblock': 0,
-        'endblock': 99999999,
-        'sort': 'desc',
-        'apikey': ETHERSCAN_API_KEY
+        'vs_currency': 'usd',  # 或其他货币
+        'days': '1'
     }
-    response = requests.get('https://api.etherscan.io/api', params=params)
+    response = requests.get(url, params=params)
     if response.status_code == 200:
-        transactions = response.json().get('result', [])
+        transactions = response.json().get('prices', [])  # 假设Coingecko返回的数据包括 'prices'
         large_transactions = []
         for tx in transactions:
-            value_eth = int(tx['value']) / 10**18  # 将 Wei 转换为以太坊
-            if value_eth >= threshold_eth:
-                tx_info = f'Large ETH Transaction: From {tx["from"]} to {tx["to"]}, Value: {value_eth} ETH, Hash: {tx["hash"]}'
+            value = tx[1]  # 假设每个交易内包含 value
+            if value >= threshold:
+                tx_info = f'Large {coin_id.upper()} Transaction: Time: {datetime.fromtimestamp(tx[0]/1000)}, Value: {value} USD'
                 logging.info(tx_info)
                 large_transactions.append(tx_info)
         return large_transactions
     else:
-        logging.error(f"Error fetching Ethereum transactions: {response.status_code}")
-        return []
-
-# 检查最近区块链上的比特币大额转账
-def check_bitcoin_large_transfers(threshold_btc):
-    url = f'https://api.blockcypher.com/v1/btc/main/full?token={BLOCKCYPHER_API_KEY}'
-    response = requests.get(url)
-    if response.status_code == 200:
-        transactions = response.json().get('txs', [])
-        large_transactions = []
-        for tx in transactions:
-            for out in tx['outputs']:
-                value_btc = out['value'] / 10**8  # 将 Satoshi 转换为比特币
-                if value_btc >= threshold_btc:
-                    tx_info = f'Large BTC Transaction: To {out["addresses"][0]}, Value: {value_btc} BTC, Hash: {tx["hash"]}'
-                    logging.info(tx_info)
-                    large_transactions.append(tx_info)
-        return large_transactions
-    else:
-        logging.error(f"Error fetching Bitcoin transactions: {response.status_code}")
+        logging.error(f"Error fetching {coin_id} transactions: {response.status_code}")
         return []
 
 # 发送消息到Telegram
@@ -111,9 +71,9 @@ def send_message_to_telegram(message):
 def process_with_gpt(real_url):
     try:
         client = openai
-        stream = client.chat.completions.create(
+        stream = client.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": real_url}],
+            messages=[{"content": real_url}],
             stream=True,
         )
 
@@ -130,8 +90,8 @@ def process_with_gpt(real_url):
 
 # 检查并记录大额交易数据
 def check_and_log_data():
-    eth_transactions = check_ethereum_large_transfers(ETH_THRESHOLD)
-    btc_transactions = check_bitcoin_large_transfers(BTC_THRESHOLD)
+    eth_transactions = check_large_transfers('ethereum', ETH_THRESHOLD)
+    btc_transactions = check_large_transfers('bitcoin', BTC_THRESHOLD)
 
     # 检查交易是否存在
     if not eth_transactions and not btc_transactions:
