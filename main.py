@@ -147,7 +147,7 @@ def send_message_to_telegram(token, chat_id, message):
 # 存储处理过的链接
 def store_processed_links(processed_articles):
     try:
-        with open('processed_links.txt', 'a', encoding='utf-8') as file:
+        with open('processed_links.txt', 'r', encoding='utf-8') as file:
             for link in processed_articles:
                 file.write(link + '\n')
     except Exception as e:
