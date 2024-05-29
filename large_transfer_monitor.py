@@ -23,10 +23,23 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
 OPENAI_BASE_API_URL = os.getenv('OPENAI_BASE_API_URL')
-ETH_THRESHOLD = float(os.getenv('ETH_THRESHOLD', '100'))  # 以太坊大额转账的阈值（单位：ETH）
-BTC_THRESHOLD = float(os.getenv('BTC_THRESHOLD', '10'))   # 比特币大额转账的阈值（单位：BTC')
+ETH_THRESHOLD_STRING = os.getenv('ETH_THRESHOLD', '100')  # 以太坊大额转账的阈值（单位：ETH）
+BTC_THRESHOLD_STRING = os.getenv('BTC_THRESHOLD', '10')   # 比特币大额转账的阈值（单位：BTC）
 
-# 设置OpenAI API端点和密钥
+# 处理阈值转化为浮点数，确保如果环境变量未设置，则使用默认值
+try:
+    ETH_THRESHOLD = float(ETH_THRESHOLD_STRING)
+except ValueError:
+    logging.error(f"Invalid ETH_THRESHOLD value: {ETH_THRESHOLD_STRING}. Using default value 100.")
+    ETH_THRESHOLD = 100.0
+
+try:
+    BTC_THRESHOLD = float(BTC_THRESHOLD_STRING)
+except ValueError:
+    logging.error(f"Invalid BTC_THRESHOLD value: {BTC_THRESHOLD_STRING}. Using default value 10.")
+    BTC_THRESHOLD = 10.0
+
+# 设置OpenAI密钥和API端点
 openai.api_key = OPENAI_API_SECRET_KEY
 openai.api_base = OPENAI_BASE_API_URL
 
@@ -39,12 +52,12 @@ def check_large_transfers(coin_id, threshold):
     }
     response = requests.get(url, params=params)
     if response.status_code == 200:
-        transactions = response.json().get('prices', [])  # 假设Coingecko返回的数据包括 'prices'
+        transactions = response.json().get('prices', [])
         large_transactions = []
         for tx in transactions:
             value = tx[1]  # 假设每个交易内包含 value
             if value >= threshold:
-                tx_info = f'Large {coin_id.upper()} Transaction: Time: {datetime.fromtimestamp(tx[0]/1000)}, Value: {value} USD'
+                tx_info = f'Large {coin_id.upper()} Transaction: Time: {datetime.fromtimestamp(tx[0]/1000)}, Value: {value} USD'  # 假设API返回时间戳为毫秒
                 logging.info(tx_info)
                 large_transactions.append(tx_info)
         return large_transactions
@@ -71,9 +84,9 @@ def send_message_to_telegram(message):
 def process_with_gpt(real_url):
     try:
         client = openai
-        stream = client.ChatCompletion.create(
+        stream = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"content": real_url}],
+            messages=[{"role": "user", "content": real_url}],
             stream=True,
         )
 
