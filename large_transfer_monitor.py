@@ -18,7 +18,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 ])
 
 # 设置API密钥和监控地址
-COINGECKO_API_URL = os.getenv('COINGECKO_API_URL', 'https://api.coingecko.com/api/v3')
+COINGECKO_API_URL = os.getenv('COINGECKO_API_URL')
+if not COINGECKO_API_URL:
+    raise ValueError("COINGECKO_API_URL is not set. Please check your environment variables.")
+
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
@@ -47,7 +50,7 @@ openai.api_base = OPENAI_BASE_API_URL
 def check_large_transfers(coin_id, threshold):
     url = f"{COINGECKO_API_URL}/coins/{coin_id}/market_chart"
     params = {
-        'vs_currency': 'usd',  # 或其他货币
+        'vs_currency': 'usd',
         'days': '1'
     }
     response = requests.get(url, params=params)
@@ -57,7 +60,7 @@ def check_large_transfers(coin_id, threshold):
         for tx in transactions:
             value = tx[1]  # 假设每个交易内包含 value
             if value >= threshold:
-                tx_info = f'Large {coin_id.upper()} Transaction: Time: {datetime.fromtimestamp(tx[0]/1000)}, Value: {value} USD'  # 假设API返回时间戳为毫秒
+                tx_info = f'Large {coin_id.upper()} Transaction: Time: {datetime.fromtimestamp(tx[0]/1000)}, Value: {value} USD'
                 logging.info(tx_info)
                 large_transactions.append(tx_info)
         return large_transactions
