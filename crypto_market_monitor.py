@@ -9,20 +9,23 @@ import json
 load_dotenv()
 
 # 配置日志记录
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
+    logging.FileHandler("news_economic.txt", mode='w'),  # 覆盖写入
+    logging.StreamHandler()
+])
 
 # 设置API密钥和URL
-BLS_API_KEY = os.getenv('BLS_API_KEY')
-FRED_API_KEY = os.getenv('FRED_API_KEY')
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+BLS_API_KEY = os.getenv('BLS_API_KEY', 'default_bls_key') # 添加默认值用于测试或调试
+FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64') # 添加默认值用于测试或调试
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token') # 添加默认值用于测试或调试
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id') # 添加默认值用于测试或调试
 
 BLS_BASE_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
 NEWS_FILE_PATH = 'news_economic.txt'
 PROCESSED_FILE_PATH = 'processed.txt'
 
-# 获取失业率（最新的Unemployment Rate）
+# 获取失业率（Unemployment Rate）
 def get_unemployment_rate():
     series_id = 'LNS14000000'  # 失业率系列ID
     url = f"{BLS_BASE_URL}"
@@ -37,14 +40,12 @@ def get_unemployment_rate():
         logging.error(f"Failed to fetch Unemployment Rate data: {response.text}")
         return None
 
-# 获取实际国内生产总值（最新的Real GDP）
+# 获取实际国内生产总值（Real GDP）
 def get_real_gdp():
     params = {
         'series_id': 'GDPC1',
         'api_key': FRED_API_KEY,
         'file_type': 'json',
-        'realtime_start': '2024-01-01',
-        'realtime_end': '2024-12-31',
         'limit': 1,
         'sort_order': 'desc'
     }
@@ -52,14 +53,14 @@ def get_real_gdp():
     if response.status_code == 200:
         data = response.json()
         if 'observations' in data and len(data['observations']) > 0:
-            return data['observations'][-1]['value']
+            return data['observations'][0]['value']
     else:
         logging.error(f"Failed to fetch Real GDP data: {response.text}")
         return None
 
-# 获取消费者价格指数（最新的CPI）
+# 获取消费者价格指数（CPI）
 def get_cpi():
-    series_id = 'CUSR0000SA0'   # CPI系列ID
+    series_id = 'CUSR0000SA0'  # CPI系列ID
     url = f"{BLS_BASE_URL}"
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
