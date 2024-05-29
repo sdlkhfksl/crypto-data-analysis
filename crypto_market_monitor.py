@@ -24,61 +24,37 @@ COINGECKO_URL = 'https://api.alternative.me/fng/?limit=1'
 NEWS_FILE_PATH = 'news_economic.txt'
 PROCESSED_FILE_PATH = 'processed.txt'
 
+# 通用API请求函数
+def get_data_from_api(endpoint, params):
+    try:
+        response = requests.get(endpoint, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        logging.error(f"HTTP error occurred: {http_err}")
+    except Exception as err:
+        logging.error(f"Other error occurred: {err}")
+    return None
+
 # 获取实际国内生产总值（Real GDP）
 def get_real_gdp():
-    url = f"{FINNHUB_BASE_URL}/economic"
-    params = {
-        'symbol': 'GDP',
-        'token': FINNHUB_API_KEY
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        logging.error(f"Failed to fetch Real GDP data: {response.text}")
-        return None
+    params = {'indicator': 'gdp', 'token': FINNHUB_API_KEY}
+    return get_data_from_api(f"{FINNHUB_BASE_URL}/indicator", params)
 
 # 获取失业率（Unemployment Rate）
 def get_unemployment_rate():
-    url = f"{FINNHUB_BASE_URL}/economic"
-    params = {
-        'symbol': 'UNRATE',
-        'token': FINNHUB_API_KEY
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        logging.error(f"Failed to fetch Unemployment Rate data: {response.text}")
-        return None
+    params = {'indicator': 'unemployment_rate', 'token': FINNHUB_API_KEY}
+    return get_data_from_api(f"{FINNHUB_BASE_URL}/indicator", params)
 
 # 获取通货膨胀率（Inflation Rate）
 def get_inflation():
-    url = f"{FINNHUB_BASE_URL}/economic"
-    params = {
-        'symbol': 'CPIAUCSL',
-        'token': FINNHUB_API_KEY
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        logging.error(f"Failed to fetch Inflation Rate data: {response.text}")
-        return None
+    params = {'indicator': 'inflation_rate', 'token': FINNHUB_API_KEY}
+    return get_data_from_api(f"{FINNHUB_BASE_URL}/indicator", params)
 
 # 获取消费者价格指数（CPI）
 def get_cpi():
-    url = f"{FINNHUB_BASE_URL}/economic"
-    params = {
-        'symbol': 'CPI',
-        'token': FINNHUB_API_KEY
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        logging.error(f"Failed to fetch CPI data: {response.text}")
-        return None
+    params = {'indicator': 'cpi', 'token': FINNHUB_API_KEY}
+    return get_data_from_api(f"{FINNHUB_BASE_URL}/indicator", params)
 
 # 获取恐惧与贪婪指数（Fear & Greed Index）
 def get_fear_greed_index():
@@ -107,20 +83,13 @@ def send_message_to_telegram(message):
 # 利用OpenAI GPT模型处理数据
 def process_with_gpt(real_url):
     try:
-        client = openai
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"content": real_url}],
-            stream=True,
+        openai.api_key = OPENAI_API_SECRET_KEY
+        response = openai.Completion.create(
+            engine="gpt-3.5-turbo",
+            prompt=real_url,
+            max_tokens=1024
         )
-
-        content = ""
-        for chunk in stream:
-            if hasattr(chunk, 'choices'):
-                choices = chunk.choices
-                if len(choices) > 0:
-                    content = choices[0].message['content']
-        return content
+        return response.choices[0].text.strip()
     except Exception as e:
         logging.error(f"Error processing with GPT: {e}")
         return None
