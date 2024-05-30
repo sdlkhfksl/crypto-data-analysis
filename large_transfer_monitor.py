@@ -18,10 +18,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 ])
 
 # Set API keys and monitoring addresses
-COINGECKO_API_URL = os.getenv('COINGECKO_API_URL')
-if not COINGECKO_API_URL:
-    raise ValueError("COINGECKO_API_URL is not set. Please check your environment variables.")
-
+COINGECKO_API_URL = os.getenv('COINGECKO_API_URL', 'https://api.coingecko.com/api/v3')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENAI_API_SECRET_KEY = os.getenv('OPENAI_API_SECRET_KEY')
@@ -89,7 +86,7 @@ def send_message_to_telegram(message):
 def process_with_gpt(real_url):
     try:
         logging.debug(f"Processing URL with GPT: {real_url}")
-        response = client.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": real_url}]
         )
@@ -112,11 +109,10 @@ def check_and_log_data():
     }, indent=2)
 
     try:
+        existing_data_json = ""
         if os.path.exists("news_transfers.txt"):
             with open("news_transfers.txt", 'r') as file:
                 existing_data_json = file.read()
-        else:
-            existing_data_json = ""
 
         if new_data_json == existing_data_json:
             logging.info("No changes in transaction data, skipping further processing.")
