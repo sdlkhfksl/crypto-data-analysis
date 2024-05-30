@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 ])
 
 # Set API keys and URL
-BLS_API_KEY = os.getenv('BLS_API_KEY', 'f370343a82374580806bdea12dca71f8')  # Default value for testing or debugging
+BLS_API_KEY = os.getenv('BLS_API_KEY', 'default_bls_key')  # Default value for testing or debugging
 FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64')  # Default value for testing or debugging
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token')  # Default value for testing or debugging
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id')  # Default value for testing or debugging
@@ -23,7 +23,6 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id')  # Default v
 BLS_BASE_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
 NEWS_FILE_PATH = 'news_economic.txt'
-PROCESSED_FILE_PATH = 'processed.txt'
 
 # Get Unemployment Rate
 def get_unemployment_rate():
