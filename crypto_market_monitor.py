@@ -9,35 +9,15 @@ import json
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelposition)s - %(message)s', handlers=[
-    logging.FileHandler("news_economic.txt", mode='a'),  # Append to news_economic.txt
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
+    logging.FileHandler("news_economic_log.txt", mode='a'),  # Append to log file
     logging.StreamHandler()
 ])
 
 # Ensure that the news_economic.txt file exists and initialize if empty or corrupt
-if not os.path.exists("news_economic.txt") or os.path.getsize("news_economic.txt") == 0:
-    logging.info("Initializing news_economic.txt with empty data structure.")
-    with open("news_economic.txt", 'w') as file:
-        empty_data = {
-            "Unemployment Rate": {"value": None, "date": None},
-            "Real GDP (FRED)": {"value": None, "date": None},
-            "Consumer Price Index (CPI)": {"value": None, "date": None},
-            "Fed Interest Rate Policy": {"value": None, "date": None},
-            "Producer Price Index (PPI)": {"value": None, "date": None},
-            "Non-Farm Payroll Report": {"value": None, "date": None},
-            "Retail Sales Data": {"value": None, "date": None},
-            "Fear and Greed Index": {"value": None, "date": None},
-        }
-        json.dump(empty_data, file, ensure_ascii=False, indent=4)
-else:
-    try:
-        # Try to read and parse existing file content
-        with open("news_economic.txt", 'r') as file:
-            prev_data = json.load(file)
-            logging.info("Previous data loaded successfully.")
-    except json.JSONDecodeError as e:
-        logging.error(f"Failed to parse previous data file: {e}")
-        # Re-initialize file if parsing fails
+def initialize_data_file():
+    if not os.path.exists("news_economic.txt") or os.path.getsize("news_economic.txt") == 0:
+        logging.info("Initializing news_economic.txt with empty data structure.")
         with open("news_economic.txt", 'w') as file:
             empty_data = {
                 "Unemployment Rate": {"value": None, "date": None},
@@ -50,11 +30,13 @@ else:
                 "Fear and Greed Index": {"value": None, "date": None},
             }
             json.dump(empty_data, file, ensure_ascii=False, indent=4)
-            prev_data = empty_data
+        logging.info("news_economic.txt initialized successfully.")
+
+initialize_data_file()
 
 # Set API keys and URLs
-BLS_API_KEY = os.getenv('BLS_API_KEY', 'f370343a82374580806bdea12dca71f8')
-FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64')
+BLS_API_KEY = os.getenv('BLS_API_KEY', 'default_bls_key')
+FRED_API_KEY = os.getenv('FRED_API_KEY', 'default_fred_key')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id')
 FEAR_GREED_INDEX_API = "https://api.alternative.me/fng/?limit=1"
@@ -175,6 +157,7 @@ def get_non_farm_payroll():
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
+    
     if response.status_code == 200:
         result = response.json()
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
@@ -285,18 +268,22 @@ def check_and_log_data():
                 'value': current_value,
                 'date': date
             }
-            if key not in prev_data or current_value != prev_data[key]['value']:
-                prev_value = prev_data[key]['value'] if key in prev_data else 0
+            prev_value = prev_data.get(key, {}).get('value')
+            if prev_value is not None:
                 direction = "increase" if current_value > prev_value else "decrease"
-                impact = influence[key][direction]
+            else:
+                direction = "increase"  # Treat as increase if there is no previous value
 
-                timestamp = get_utc_plus_8_time()
-                prev_value_display = prev_data[key]['value'] if key in prev_data else '无记录的'
-                change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({'📈 增加' if direction == 'increase' else '📉 减少'}, {impact})"
-                send_message_to_telegram(change_message)
-                logging.info(change_message)
+            impact = influence[key][direction]
 
-                updated_indicators.append(key)
+            timestamp = get_utc_plus_8_time()
+            prev_value_display = prev_value if prev_value is not None else '无记录的'
+            change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({'📈 增加' if direction == 'increase' else '📉 减少'}, {impact})"
+            
+            send_message_to_telegram(change_message)
+            logging.info(change_message)
+
+            updated_indicators.append(key)
 
     # Update the data file
     logging.info("Updating news_economic.txt with new data.")
