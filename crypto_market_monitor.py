@@ -10,15 +10,15 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
-    logging.FileHandler("news_economic_log.txt", mode='a'),  # Append to log file
+    logging.FileHandler("news_economic.log", mode='a'),  # Append to log file
     logging.StreamHandler()
 ])
 
-# Ensure that the news_economic.txt file exists and initialize if empty or corrupt
+# Ensure that the news_economic.json file exists and initialize if empty or corrupt
 def initialize_data_file():
-    if not os.path.exists("news_economic.txt") or os.path.getsize("news_economic.txt") == 0:
-        logging.info("Initializing news_economic.txt with empty data structure.")
-        with open("news_economic.txt", 'w') as file:
+    if not os.path.exists("news_economic.json") or os.path.getsize("news_economic.json") == 0:
+        logging.info("Initializing news_economic.json with empty data structure.")
+        with open("news_economic.json", 'w') as file:
             empty_data = {
                 "Unemployment Rate": {"value": None, "date": None},
                 "Real GDP (FRED)": {"value": None, "date": None},
@@ -30,7 +30,7 @@ def initialize_data_file():
                 "Fear and Greed Index": {"value": None, "date": None},
             }
             json.dump(empty_data, file, ensure_ascii=False, indent=4)
-        logging.info("news_economic.txt initialized successfully.")
+        logging.info("news_economic.json initialized successfully.")
 
 initialize_data_file()
 
@@ -43,7 +43,7 @@ FEAR_GREED_INDEX_API = "https://api.alternative.me/fng/?limit=1"
 
 BLS_BASE_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
-NEWS_FILE_PATH = 'news_economic.txt'
+NEWS_FILE_PATH = 'news_economic.json'
 
 # Helper function to get the current time in UTC+8
 def get_utc_plus_8_time():
@@ -75,6 +75,7 @@ def get_unemployment_rate():
     current_year = str(datetime.now().year)
     data = json.dumps({"seriesid": [series_id], "startyear": current_year, "endyear": current_year, "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
+    
     if response.status_code == 200:
         result = response.json()
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
@@ -108,6 +109,7 @@ def get_cpi():
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
+    
     if response.status_code == 200:
         result = response.json()
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
@@ -141,6 +143,7 @@ def get_ppi():
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
+    
     if response.status_code == 200:
         result = response.json()
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
@@ -157,7 +160,6 @@ def get_non_farm_payroll():
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
-    
     if response.status_code == 200:
         result = response.json()
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
@@ -208,7 +210,7 @@ def check_and_log_data():
             logging.error(f"Failed to parse previous data file: {e}")
             prev_data = {}  # Reset to empty if parsing fails
     else:
-        logging.info("news_economic.txt does not exist or is empty, initializing with empty data structure.")
+        logging.info("news_economic.json does not exist or is empty, initializing with empty data structure.")
         
     # Fetch current data
     indicators = {
@@ -286,7 +288,7 @@ def check_and_log_data():
             updated_indicators.append(key)
 
     # Update the data file
-    logging.info("Updating news_economic.txt with new data.")
+    logging.info("Updating news_economic.json with new data.")
     with open(NEWS_FILE_PATH, 'w') as file:
         json.dump(new_data, file, ensure_ascii=False, indent=4)
 
