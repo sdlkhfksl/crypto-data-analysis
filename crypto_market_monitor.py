@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 ])
 
 # Set API keys and URL
-BLS_API_KEY = os.getenv('BLS_API_KEY', 'default_bls_key')  # Default value for testing or debugging
+BLS_API_KEY = os.getenv('BLS_API_KEY', 'f370343a82374580806bdea12dca71f8')  # Default value for testing or debugging
 FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64')  # Default value for testing or debugging
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token')  # Default value for testing or debugging
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id')  # Default value for testing or debugging
@@ -107,6 +107,15 @@ def send_message_to_telegram(message):
         logging.error(f"Failed to send message to Telegram: {e}")
         return False
 
+# Format data for Telegram message
+def format_data_for_message(data):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    message = (f"经济数据更新 ({timestamp}):\n"
+               f"- 失业率: {data['Unemployment Rate']}%\n"
+               f"- 实际GDP: {data['Real GDP (FRED)']}\n"
+               f"- 消费者价格指数 (CPI): {data['Consumer Price Index (CPI)']}")
+    return message
+
 # Check and log economic data
 def check_and_log_data():
     data = {
@@ -138,8 +147,11 @@ def check_and_log_data():
         with open(NEWS_FILE_PATH, 'w') as file:
             file.write(new_data_json)
 
+        # Format data for message
+        message = format_data_for_message(data)
+
         # Send message to Telegram
-        if send_message_to_telegram(new_data_json):
+        if send_message_to_telegram(message):
             logging.info("Message sent to Telegram successfully.")
 
 if __name__ == "__main__":
