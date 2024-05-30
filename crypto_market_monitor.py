@@ -9,12 +9,12 @@ import json
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelposition)s - %(message)s', handlers=[
     logging.FileHandler("news_economic.txt", mode='a'),  # Append to news_economic.txt
     logging.StreamHandler()
 ])
 
-# Ensure that the news_economic.txt file exists and initialize if empty
+# Ensure that the news_economic.txt file exists and initialize if empty or corrupt
 if not os.path.exists("news_economic.txt") or os.path.getsize("news_economic.txt") == 0:
     logging.info("Initializing news_economic.txt with empty data structure.")
     with open("news_economic.txt", 'w') as file:
@@ -29,6 +29,28 @@ if not os.path.exists("news_economic.txt") or os.path.getsize("news_economic.txt
             "Fear and Greed Index": {"value": None, "date": None},
         }
         json.dump(empty_data, file, ensure_ascii=False, indent=4)
+else:
+    try:
+        # Try to read and parse existing file content
+        with open("news_economic.txt", 'r') as file:
+            prev_data = json.load(file)
+            logging.info("Previous data loaded successfully.")
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse previous data file: {e}")
+        # Re-initialize file if parsing fails
+        with open("news_economic.txt", 'w') as file:
+            empty_data = {
+                "Unemployment Rate": {"value": None, "date": None},
+                "Real GDP (FRED)": {"value": None, "date": None},
+                "Consumer Price Index (CPI)": {"value": None, "date": None},
+                "Fed Interest Rate Policy": {"value": None, "date": None},
+                "Producer Price Index (PPI)": {"value": None, "date": None},
+                "Non-Farm Payroll Report": {"value": None, "date": None},
+                "Retail Sales Data": {"value": None, "date": None},
+                "Fear and Greed Index": {"value": None, "date": None},
+            }
+            json.dump(empty_data, file, ensure_ascii=False, indent=4)
+            prev_data = empty_data
 
 # Set API keys and URLs
 BLS_API_KEY = os.getenv('BLS_API_KEY', 'f370343a82374580806bdea12dca71f8')
@@ -141,8 +163,9 @@ def get_ppi():
         result = response.json()
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
             series_data = result['Results']['series'][0]['data']
-            logging.info("PPI fetched successfully.")
-            return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
+            if len(series_data) > 0:
+                logging.info("PPI fetched successfully.")
+                return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
     logging.error(f"Failed to fetch PPI data: {response.status_code} {response.text}")
     return None, None
 
@@ -156,8 +179,9 @@ def get_non_farm_payroll():
         result = response.json()
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
             series_data = result['Results']['series'][0]['data']
-            logging.info("Non-Farm Payroll fetched successfully.")
-            return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
+            if len(series_data) > 0:
+                logging.info("Non-Farm Payroll fetched successfully.")
+                return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
     logging.error(f"Failed to fetch Non-Farm Payroll data: {response.status_code} {response.text}")
     return None, None
 
@@ -192,15 +216,17 @@ def get_fear_greed_index():
 def check_and_log_data():
     prev_data = {}
     # Read previous data from file if exists
-    if os.path.exists(NEWS_FILE_PATH):
-        with open(NEWS_FILE_PATH, 'r') as file:
-            try:
+    if os.path.exists(NEWS_FILE_PATH) and os.path.getsize(NEWS_FILE_PATH) > 0:
+        try:
+            with open(NEWS_FILE_PATH, 'r') as file:
                 prev_data = json.load(file)
                 logging.info("Previous data loaded successfully.")
-            except json.JSONDecodeError as e:
-                logging.error(f"Failed to parse previous data file: {e}")
-                prev_data = {}
-
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse previous data file: {e}")
+            prev_data = {}  # Reset to empty if parsing fails
+    else:
+        logging.info("news_economic.txt does not exist or is empty, initializing with empty data structure.")
+        
     # Fetch current data
     indicators = {
         'Unemployment Rate': get_unemployment_rate(),
@@ -260,12 +286,13 @@ def check_and_log_data():
                 'date': date
             }
             if key not in prev_data or current_value != prev_data[key]['value']:
-                direction = "increase" if current_value > (prev_data[key]['value'] if key in prev_data else 0) else "decrease"
+                prev_value = prev_data[key]['value'] if key in prev_data else 0
+                direction = "increase" if current_value > prev_value else "decrease"
                 impact = influence[key][direction]
 
                 timestamp = get_utc_plus_8_time()
                 prev_value_display = prev_data[key]['value'] if key in prev_data else '无记录的'
-                change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({direction} 📈 if current_value > prev_value else 📉, {impact})"
+                change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({'📈 增加' if direction == 'increase' else '📉 减少'}, {impact})"
                 send_message_to_telegram(change_message)
                 logging.info(change_message)
 
