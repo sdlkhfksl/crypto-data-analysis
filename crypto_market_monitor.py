@@ -19,6 +19,7 @@ BLS_API_KEY = os.getenv('BLS_API_KEY', 'f370343a82374580806bdea12dca71f8')  # De
 FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64')  # Default value for testing or debugging
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token')  # Default value for testing or debugging
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id')  # Default value for testing或调试
+FEAR_GREED_INDEX_API = "https://api.alternative.me/fng/?limit=1"
 
 BLS_BASE_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
@@ -156,6 +157,15 @@ def get_retail_sales():
     logging.error(f"Failed to fetch Retail Sales data: {response.status_code} {response.text}")
     return None, None
 
+def get_fear_greed_index():
+    response = requests.get(FEAR_GREED_INDEX_API)
+    if response.status_code == 200:
+        result = response.json()
+        if 'data' in result and len(result['data']) > 0:
+            return int(result['data'][0]['value']), result['data'][0]['timestamp']
+        logging.error(f"Failed to fetch Fear and Greed Index data: {response.status_code} {response.text}")
+        return None, None
+
 # Check and log economic data
 def check_and_log_data():
     # Read previous data from file if exists
@@ -175,7 +185,8 @@ def check_and_log_data():
         'Fed Interest Rate Policy': get_fed_interest_rate(),
         'Producer Price Index (PPI)': get_ppi(),
         'Non-Farm Payroll Report': get_non_farm_payroll(),
-        'Retail Sales Data': get_retail_sales()
+        'Retail Sales Data': get_retail_sales(),
+        'Fear and Greed Index': get_fear_greed_index()
     }
 
     updated_indicators = []  # To keep track of updated indicators
@@ -209,6 +220,10 @@ def check_and_log_data():
         'Retail Sales Data': {
             'increase': "消费增加，对币市看多 🙂",
             'decrease': "消费减少，对币市看空 😔"
+        },
+        'Fear and Greed Index': {
+            'increase': "市场恐惧减弱，对币市看多 🙂",
+            'decrease': "市场恐惧增强，对币市看空 😔"
         }
     }
 
@@ -225,7 +240,7 @@ def check_and_log_data():
                 impact = influence[key][direction]
 
                 timestamp = get_utc_plus_8_time()
-                prev_value_display = prev_data[key]['value'] if key in prev_data else '无记录'
+                prev_value_display = prev_data[key]['value'] if key in prev_data else '无记录的'
                 change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({direction} 📈 if current_value > prev_value else 📉, {impact})"
                 send_message_to_telegram(change_message)
                 logging.info(change_message)
