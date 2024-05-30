@@ -1,1 +1,10 @@
-
+{
+            "Unemployment Rate": {"value": None, "date": None},
+            "Real GDP (FRED)": {"value": None, "date": None},
+            "Consumer Price Index (CPI)": {"value": None, "date": None},
+            "Fed Interest Rate Policy": {"value": None, "date": None},
+            "Producer Price Index (PPI)": {"value": None, "date": None},
+            "Non-Farm Payroll Report": {"value": None, "date": None},
+            "Retail Sales Data": {"value": None, "date": None},
+            "Fear and Greed Index": {"value": None, "date": None},
+        }
