@@ -5,29 +5,29 @@ from datetime import datetime
 from dotenv import load_dotenv
 import json
 
-# 加载环境变量
+# Load environment variables
 load_dotenv()
 
-# 配置日志记录
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
-    logging.FileHandler("news_economic.txt", mode='w'),  # 覆盖写入
+    logging.FileHandler("news_economic.txt", mode='w'),  # Overwrite news_economic.txt
     logging.StreamHandler()
 ])
 
-# 设置API密钥和URL
-BLS_API_KEY = os.getenv('BLS_API_KEY', 'default_bls_key') # 添加默认值用于测试或调试
-FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64') # 添加默认值用于测试或调试
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token') # 添加默认值用于测试或调试
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id') # 添加默认值用于测试或调试
+# Set API keys and URL
+BLS_API_KEY = os.getenv('BLS_API_KEY', 'default_bls_key') # Default value for testing or debugging
+FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64') # Default value for testing or debugging
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token') # Default value for testing or debugging
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id') # Default value for testing or debugging
 
 BLS_BASE_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
 NEWS_FILE_PATH = 'news_economic.txt'
 PROCESSED_FILE_PATH = 'processed.txt'
 
-# 获取失业率（Unemployment Rate）
+# Get Unemployment Rate
 def get_unemployment_rate():
-    series_id = 'LNS14000000'  # 失业率系列ID
+    series_id = 'LNS14000000'  # Unemployment rate series ID
     url = f"{BLS_BASE_URL}"
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
@@ -37,10 +37,10 @@ def get_unemployment_rate():
         if 'Results' in data and 'series' in data['Results'] and len(data['Results']['series']) > 0:
             return data['Results']['series'][0]['data'][0]['value']
     else:
-        logging.error(f"Failed to fetch Unemployment Rate data: {response.text}")
+        logging.error(f"Failed to fetch Unemployment Rate data: {response.status_code} {response.text}")
         return None
 
-# 获取实际国内生产总值（Real GDP）
+# Get Real GDP
 def get_real_gdp():
     params = {
         'series_id': 'GDPC1',
@@ -55,12 +55,12 @@ def get_real_gdp():
         if 'observations' in data and len(data['observations']) > 0:
             return data['observations'][0]['value']
     else:
-        logging.error(f"Failed to fetch Real GDP data: {response.text}")
+        logging.error(f"Failed to fetch Real GDP data: {response.status_code} {response.text}")
         return None
 
-# 获取消费者价格指数（CPI）
+# Get Consumer Price Index (CPI)
 def get_cpi():
-    series_id = 'CUSR0000SA0'  # CPI系列ID
+    series_id = 'CUSR0000SA0'  # CPI series ID
     url = f"{BLS_BASE_URL}"
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
@@ -70,10 +70,10 @@ def get_cpi():
         if 'Results' in data and 'series' in data['Results'] and len(data['Results']['series']) > 0:
             return data['Results']['series'][0]['data'][0]['value']
     else:
-        logging.error(f"Failed to fetch CPI data: {response.text}")
+        logging.error(f"Failed to fetch CPI data: {response.status_code} {response.text}")
         return None
 
-# 发送消息到Telegram
+# Send message to Telegram
 def send_message_to_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -88,7 +88,7 @@ def send_message_to_telegram(message):
         logging.error(f"Failed to send message to Telegram: {e}")
         return False
 
-# 检查并记录经济数据
+# Check and log economic data
 def check_and_log_data():
     data = {
         'Unemployment Rate': get_unemployment_rate(),
@@ -96,29 +96,30 @@ def check_and_log_data():
         'Consumer Price Index (CPI)': get_cpi()
     }
 
-    # 检查是否有获取不到的数据
-    if any(value is None for value in data.values()):
-        logging.error("Some of the economic data is None, skipping...")
-        return
+    # Check if any data is None
+    for key, value in data.items():
+        if value is None:
+            logging.error(f"{key} data is None, skipping...")
+            return
 
     new_data_json = json.dumps(data, indent=2)
 
-    # 读取文件中的现有数据
+    # Read existing data from file
     if os.path.exists(NEWS_FILE_PATH):
         with open(NEWS_FILE_PATH, 'r') as file:
             existing_data_json = file.read()
     else:
         existing_data_json = ""
 
-    # 如果数据没有变化则跳过进一步处理
+    # If data has not changed, skip further processing
     if new_data_json == existing_data_json:
         logging.info("No changes in data, skipping further processing.")
     else:
-        # 将新的数据写入news_economic.txt
+        # Write new data to news_economic.txt
         with open(NEWS_FILE_PATH, 'w') as file:
             file.write(new_data_json)
 
-        # 发送消息到Telegram
+        # Send message to Telegram
         if send_message_to_telegram(new_data_json):
             logging.info("Message sent to Telegram successfully.")
 
