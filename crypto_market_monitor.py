@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 BLS_API_KEY = os.getenv('BLS_API_KEY', 'f370343a82374580806bdea12dca71f8')  # Default value for testing or debugging
 FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64')  # Default value for testing or debugging
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token')  # Default value for testing or debugging
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id')  # Default value for testing or debugging
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'default_chat_id')  # Default value for testing或调试
 
 BLS_BASE_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
@@ -47,7 +47,6 @@ def send_message_to_telegram(message):
         logging.error(f"Error sending message to Telegram: {e}")
 
 # Fetch data functions for various indicators
-
 def get_unemployment_rate():
     series_id = 'LNS14000000'
     url = f"{BLS_BASE_URL}"
@@ -174,4 +173,68 @@ def check_and_log_data():
         'Real GDP (FRED)': get_real_gdp(),
         'Consumer Price Index (CPI)': get_cpi(),
         'Fed Interest Rate Policy': get_fed_interest_rate(),
-        'Producer Price Index (PPI)': get_ppi
+        'Producer Price Index (PPI)': get_ppi(),
+        'Non-Farm Payroll Report': get_non_farm_payroll(),
+        'Retail Sales Data': get_retail_sales()
+    }
+
+    updated_indicators = []  # To keep track of updated indicators
+
+    # Define the influence of each indicator
+    influence = {
+        'Unemployment Rate': {
+            'increase': "行情利空，对币市看空 😔",
+            'decrease': "行情利好，对币市看多 🙂"
+        },
+        'Real GDP (FRED)': {
+            'increase': "对经济有利，风险较大，对币市看多 🙂",
+            'decrease': "对经济不利，风险较大，对币市看空 😔"
+        },
+        'Consumer Price Index (CPI)': {
+            'increase': "对抗通胀有利，对币市看多 🙂",
+            'decrease': "通胀减少无明显影响 😐"
+        },
+        'Fed Interest Rate Policy': {
+            'increase': "利率上升，对币市看空 😔",
+            'decrease': "利率下降，对币市看多 🙂"
+        },
+        'Producer Price Index (PPI)': {
+            'increase': "对抗通胀有利，对币市看多 🙂",
+            'decrease': "生产成本下降无明显影响 😐"
+        },
+        'Non-Farm Payroll Report': {
+            'increase': "就业增加，对币市看多 🙂",
+            'decrease': "就业减少，对币市看空 😔"
+        },
+        'Retail Sales Data': {
+            'increase': "消费增加，对币市看多 🙂",
+            'decrease': "消费减少，对币市看空 😔"
+        }
+    }
+
+    # Compare current data with previous data and send updates
+    new_data = {}
+    for key, (current_value, date) in indicators.items():
+        if current_value is not None:
+            new_data[key] = {
+                'value': current_value,
+                'date': date
+            }
+            if key not in prev_data or current_value != prev_data[key]['value']:
+                direction = "increase" if current_value > (prev_data[key]['value'] if key in prev_data else 0) else "decrease"
+                impact = influence[key][direction]
+
+                timestamp = get_utc_plus_8_time()
+                prev_value_display = prev_data[key]['value'] if key in prev_data else '无记录'
+                change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({direction} 📈 if current_value > prev_value else 📉, {impact})"
+                send_message_to_telegram(change_message)
+                logging.info(change_message)
+
+                updated_indicators.append(key)
+
+    # Update the data file
+    with open(NEWS_FILE_PATH, 'w') as file:
+        json.dump(new_data, file, ensure_ascii=False, indent=4)
+
+if __name__ == "__main__":
+    check_and_log_data()
