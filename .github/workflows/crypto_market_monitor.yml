@@ -23,14 +23,13 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install requests python-dotenv openai==1.14.2 schedule
+        pip install requests python-dotenv
 
     - name: Run Crypto Market Monitor Script
       env:
-        FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+        FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        OPENAI_API_SECRET_KEY: ${{ secrets.OPENAI_API_SECRET_KEY }}
-        OPENAI_BASE_API_URL: ${{ secrets.OPENAI_BASE_API_URL }}
       run: |
         python crypto_market_monitor.py
