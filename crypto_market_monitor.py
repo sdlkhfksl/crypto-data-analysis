@@ -1,7 +1,7 @@
 import os
 import requests
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import json
 
@@ -10,11 +10,11 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
-    logging.FileHandler("news_economic.txt", mode='w'),  # Overwrite news_economic.txt
+    logging.FileHandler("news_economic.txt", mode='a'),  # Append to news_economic.txt
     logging.StreamHandler()
 ])
 
-# Set API keys and URL
+# Set API keys and URLs
 BLS_API_KEY = os.getenv('BLS_API_KEY', 'f370343a82374580806bdea12dca71f8')  # Default value for testing or debugging
 FRED_API_KEY = os.getenv('FRED_API_KEY', 'e962609971d8c5b28e51982689119f64')  # Default value for testing or debugging
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'default_telegram_token')  # Default value for testing or debugging
@@ -24,40 +24,46 @@ BLS_BASE_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/'
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
 NEWS_FILE_PATH = 'news_economic.txt'
 
-# Get Unemployment Rate
+# Helper function to get the current time in UTC+8
+def get_utc_plus_8_time():
+    utc_plus_8 = timezone(timedelta(hours=8))
+    return datetime.now(utc_plus_8).strftime("%Y-%m-%d %H:%M:%S")
+
+# Helper function to send message to Telegram
+def send_message_to_telegram(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "disable_notification": True
+    }
+    try:
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            logging.info("Message sent to Telegram successfully.")
+        else:
+            logging.error(f"Failed to send message to Telegram: {response.text}")
+    except Exception as e:
+        logging.error(f"Error sending message to Telegram: {e}")
+
+# Fetch data functions for various indicators
+
 def get_unemployment_rate():
-    series_id = 'LNS14000000'  # Unemployment rate series ID
+    series_id = 'LNS14000000'
     url = f"{BLS_BASE_URL}"
     headers = {'Content-type': 'application/json'}
     current_year = str(datetime.now().year)
-    previous_year = str(datetime.now().year - 1)
     data = json.dumps({"seriesid": [series_id], "startyear": current_year, "endyear": current_year, "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
     if response.status_code == 200:
-        data = response.json()
-        logging.info(f"BLS API Response for {current_year}: {data}")
-        if 'Results' in data and 'series' in data['Results'] and len(data['Results']['series']) > 0:
-            series_data = data['Results']['series'][0]['data']
+        result = response.json()
+        if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
+            series_data = result['Results']['series'][0]['data']
             if len(series_data) > 0:
-                return series_data[0]['value']
-            else:
-                logging.info(f"No data for {current_year}, trying {previous_year}")
-                data = json.dumps({"seriesid": [series_id], "startyear": previous_year, "endyear": previous_year, "registrationkey": BLS_API_KEY})
-                response = requests.post(url, data=data, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    logging.info(f"BLS API Response for {previous_year}: {data}")
-                    if 'Results' in data and 'series' in data['Results'] and len(data['Results']['series']) > 0:
-                        series_data = data['Results']['series'][0]['data']
-                        if len(series_data) > 0:
-                            return series_data[0]['value']
-                logging.error(f"No data available for both {current_year} and {previous_year}.")
-                return None
-    else:
-        logging.error(f"Failed to fetch Unemployment Rate data: {response.status_code} {response.text}")
-        return None
+                return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
+    logging.error(f"Failed to fetch Unemployment Rate data: {response.status_code} {response.text}")
+    return None, None
 
-# Get Real GDP
 def get_real_gdp():
     params = {
         'series_id': 'GDPC1',
@@ -68,91 +74,104 @@ def get_real_gdp():
     }
     response = requests.get(FRED_BASE_URL, params=params)
     if response.status_code == 200:
-        data = response.json()
-        logging.info(f"FRED API Response: {data}")
-        if 'observations' in data and len(data['observations']) > 0:
-            return data['observations'][0]['value']
-    else:
-        logging.error(f"Failed to fetch Real GDP data: {response.status_code} {response.text}")
-        return None
+        result = response.json()
+        if 'observations' in result and len(result['observations']) > 0:
+            return float(result['observations'][0]['value']), result['observations'][0]['date']
+    logging.error(f"Failed to fetch Real GDP data: {response.status_code} {response.text}")
+    return None, None
 
-# Get Consumer Price Index (CPI)
 def get_cpi():
-    series_id = 'CUSR0000SA0'  # CPI series ID
+    series_id = 'CUSR0000SA0'
     url = f"{BLS_BASE_URL}"
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
     if response.status_code == 200:
-        data = response.json()
-        logging.info(f"BLS API Response: {data}")
-        if 'Results' in data and 'series' in data['Results'] and len(data['Results']['series']) > 0:
-            return data['Results']['series'][0]['data'][0]['value']
-    else:
-        logging.error(f"Failed to fetch CPI data: {response.status_code} {response.text}")
-        return None
+        result = response.json()
+        if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
+            series_data = result['Results']['series'][0]['data']
+            if len(series_data) > 0:
+                return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
+    logging.error(f"Failed to fetch CPI data: {response.status_code} {response.text}")
+    return None, None
 
-# Send message to Telegram
-def send_message_to_telegram(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "disable_notification": True
+def get_fed_interest_rate():
+    params = {
+        'series_id': 'FEDFUNDS',
+        'api_key': FRED_API_KEY,
+        'file_type': 'json',
+        'limit': 1,
+        'sort_order': 'desc'
     }
-    try:
-        response = requests.post(url, json=payload)
-        return response.status_code == 200
-    except Exception as e:
-        logging.error(f"Failed to send message to Telegram: {e}")
-        return False
+    response = requests.get(FRED_BASE_URL, params=params)
+    if response.status_code == 200:
+        result = response.json()
+        if 'observations' in result and len(result['observations']) > 0:
+            return float(result['observations'][0]['value']), result['observations'][0]['date']
+    logging.error(f"Failed to fetch Fed Interest Rate data: {response.status_code} {response.text}")
+    return None, None
 
-# Format data for Telegram message
-def format_data_for_message(data):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    message = (f"经济数据更新 ({timestamp}):\n"
-               f"- 失业率: {data['Unemployment Rate']}%\n"
-               f"- 实际GDP: {data['Real GDP (FRED)']}\n"
-               f"- 消费者价格指数 (CPI): {data['Consumer Price Index (CPI)']}")
-    return message
+def get_ppi():
+    series_id = 'WPU00000000'
+    url = f"{BLS_BASE_URL}"
+    headers = {'Content-type': 'application/json'}
+    data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
+    response = requests.post(url, data=data, headers=headers)
+    if response.status_code == 200:
+        result = response.json()
+        if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
+            series_data = result['Results']['series'][0]['data']
+            if len(series_data) > 0:
+                return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
+    logging.error(f"Failed to fetch PPI data: {response.status_code} {response.text}")
+    return None, None
+
+def get_non_farm_payroll():
+    series_id = 'CES0000000001'
+    url = f"{BLS_BASE_URL}"
+    headers = {'Content-type': 'application/json'}
+    data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
+    response = requests.post(url, data=data, headers=headers)
+    if response.status_code == 200:
+        result = response.json()
+        if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
+            series_data = result['Results']['series'][0]['data']
+            if len(series_data) > 0:
+                return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
+    logging.error(f"Failed to fetch Non-Farm Payroll data: {response.status_code} {response.text}")
+    return None, None
+
+def get_retail_sales():
+    params = {
+        'series_id': 'RSAFS',
+        'api_key': FRED_API_KEY,
+        'file_type': 'json',
+        'limit': 1,
+        'sort_order': 'desc'
+    }
+    response = requests.get(FRED_BASE_URL, params=params)
+    if response.status_code == 200:
+        result = response.json()
+        if 'observations' in result and len(result['observations']) > 0:
+            return float(result['observations'][0]['value']), result['observations'][0]['date']
+    logging.error(f"Failed to fetch Retail Sales data: {response.status_code} {response.text}")
+    return None, None
 
 # Check and log economic data
 def check_and_log_data():
-    data = {
-        'Unemployment Rate': get_unemployment_rate(),
-        'Real GDP (FRED)': get_real_gdp(),
-        'Consumer Price Index (CPI)': get_cpi()
-    }
-
-    # Check if any data is None
-    for key, value in data.items():
-        if value is None:
-            logging.error(f"{key} data is None, skipping...")
-            return
-
-    new_data_json = json.dumps(data, indent=2)
-
-    # Read existing data from file
+    # Read previous data from file if exists
+    prev_data = {}
     if os.path.exists(NEWS_FILE_PATH):
         with open(NEWS_FILE_PATH, 'r') as file:
-            existing_data_json = file.read()
-    else:
-        existing_data_json = ""
+            try:
+                prev_data = json.load(file)
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to parse previous data file: {e}")
 
-    # If data has not changed, skip further processing
-    if new_data_json == existing_data_json:
-        logging.info("No changes in data, skipping further processing.")
-    else:
-        # Write new data to news_economic.txt
-        with open(NEWS_FILE_PATH, 'w') as file:
-            file.write(new_data_json)
-
-        # Format data for message
-        message = format_data_for_message(data)
-
-        # Send message to Telegram
-        if send_message_to_telegram(message):
-            logging.info("Message sent to Telegram successfully.")
-
-if __name__ == "__main__":
-    check_and_log_data()
+    # Fetch current data
+    indicators = {
+        'Unemployment Rate': get_unemployment_rate(),
+        'Real GDP (FRED)': get_real_gdp(),
+        'Consumer Price Index (CPI)': get_cpi(),
+        'Fed Interest Rate Policy': get_fed_interest_rate(),
+        'Producer Price Index (PPI)': get_ppi
