@@ -9,15 +9,15 @@ import json
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
-    logging.FileHandler("news_economic.log", mode='a'),  # Append to log file
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[
+    logging.FileHandler("news_economic_log.txt", mode='a'),  # Append to log file
     logging.StreamHandler()
 ])
 
 # Ensure that the news_economic.json file exists and initialize if empty or corrupt
 def initialize_data_file():
     if not os.path.exists("news_economic.json") or os.path.getsize("news_economic.json") == 0:
-        logging.info("Initializing news_economic.json with empty data structure.")
+        logging.debug("Initializing news_economic.json with empty data structure.")
         with open("news_economic.json", 'w') as file:
             empty_data = {
                 "Unemployment Rate": {"value": None, "date": None},
@@ -30,7 +30,7 @@ def initialize_data_file():
                 "Fear and Greed Index": {"value": None, "date": None},
             }
             json.dump(empty_data, file, ensure_ascii=False, indent=4)
-        logging.info("news_economic.json initialized successfully.")
+        logging.debug("news_economic.json initialized successfully.")
 
 initialize_data_file()
 
@@ -50,7 +50,7 @@ def get_utc_plus_8_time():
     utc_plus_8 = timezone(timedelta(hours=8))
     return datetime.now(utc_plus_8).strftime("%Y-%m-%d %H:%M:%S")
 
-# Helper function to send message to Telegram
+# Helper function to send messages to Telegram
 def send_message_to_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -78,6 +78,7 @@ def get_unemployment_rate():
     
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched unemployment rate data: {result}")
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
             series_data = result['Results']['series'][0]['data']
             if len(series_data) > 0:
@@ -97,6 +98,7 @@ def get_real_gdp():
     response = requests.get(FRED_BASE_URL, params=params)
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched real GDP data: {result}")
         if 'observations' in result and len(result['observations']) > 0:
             logging.info("Real GDP fetched successfully.")
             return float(result['observations'][0]['value']), result['observations'][0]['date']
@@ -112,6 +114,7 @@ def get_cpi():
     
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched CPI data: {result}")
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
             series_data = result['Results']['series'][0]['data']
             if len(series_data) > 0:
@@ -131,6 +134,7 @@ def get_fed_interest_rate():
     response = requests.get(FRED_BASE_URL, params=params)
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched Fed interest rate data: {result}")
         if 'observations' in result and len(result['observations']) > 0:
             logging.info("Fed Interest Rate fetched successfully.")
             return float(result['observations'][0]['value']), result['observations'][0]['date']
@@ -146,12 +150,13 @@ def get_ppi():
     
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched PPI data: {result}")
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
             series_data = result['Results']['series'][0]['data']
             if len(series_data) > 0:
                 logging.info("PPI fetched successfully.")
                 return float(series_data[0]['value']), f"{series_data[0]['year']}年 {series_data[0]['periodName']}"
-    logging.error(f"Failed to fetch PPI data: {response.status_code} {response.text}")
+        logging.error(f"Failed to fetch PPI data: {response.status_code} {response.text}")
     return None, None
 
 def get_non_farm_payroll():
@@ -160,8 +165,10 @@ def get_non_farm_payroll():
     headers = {'Content-type': 'application/json'}
     data = json.dumps({"seriesid": [series_id], "startyear": str(datetime.now().year), "endyear": str(datetime.now().year), "registrationkey": BLS_API_KEY})
     response = requests.post(url, data=data, headers=headers)
+    
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched non-farm payroll data: {result}")
         if 'Results' in result and 'series' in result['Results'] and len(result['Results']['series']) > 0:
             series_data = result['Results']['series'][0]['data']
             if len(series_data) > 0:
@@ -181,6 +188,7 @@ def get_retail_sales():
     response = requests.get(FRED_BASE_URL, params=params)
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched retail sales data: {result}")
         if 'observations' in result and len(result['observations']) > 0:
             logging.info("Retail Sales fetched successfully.")
             return float(result['observations'][0]['value']), result['observations'][0]['date']
@@ -191,6 +199,7 @@ def get_fear_greed_index():
     response = requests.get(FEAR_GREED_INDEX_API)
     if response.status_code == 200:
         result = response.json()
+        logging.debug(f"Fetched fear and greed index data: {result}")
         if 'data' in result and len(result['data']) > 0:
             logging.info("Fear and Greed Index fetched successfully.")
             return float(result['data'][0]['value']), result['data'][0]['timestamp']
