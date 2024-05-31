@@ -13,7 +13,7 @@ def get_all_coins():
         print(f"Error fetching coin list: {e}")
         return []
 
-# 获取某个加密货币的当前价格
+# 获取某些加密货币的当前价格
 def get_coin_prices(coin_ids):
     ids = ",".join(coin_ids)
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd"
@@ -24,6 +24,15 @@ def get_coin_prices(coin_ids):
     except requests.RequestException as e:
         print(f"Error fetching coin prices: {e}")
         return {}
+
+# 分批获取所有币种的价格
+def get_all_coin_prices(coin_ids, batch_size=100):
+    all_prices = {}
+    for i in range(0, len(coin_ids), batch_size):
+        batch_ids = coin_ids[i:i + batch_size]
+        prices = get_coin_prices(batch_ids)
+        all_prices.update(prices)
+    return all_prices
 
 # 发送消息到Telegram
 def send_telegram_message(message):
@@ -47,7 +56,7 @@ def monitor_price_changes(interval=60, threshold=0.05):
     coin_ids = [coin['id'] for coin in coins]
 
     while True:
-        coin_prices = get_coin_prices(coin_ids)
+        coin_prices = get_all_coin_prices(coin_ids)
         
         for coin in coins:
             coin_id = coin['id']
