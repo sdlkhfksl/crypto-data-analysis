@@ -193,11 +193,10 @@ def get_fear_greed_index():
         result = response.json()
         if 'data' in result and len(result['data']) > 0:
             logging.info("Fear and Greed Index fetched successfully.")
-            return int(result['data'][0]['value']), result['data'][0]['timestamp']
+            return float(result['data'][0]['value']), result['data'][0]['timestamp']
     logging.error(f"Failed to fetch Fear and Greed Index data: {response.status_code} {response.text}")
     return None, None
 
-# Check and log economic data
 def check_and_log_data():
     prev_data = {}
     # Read previous data from file if exists
@@ -266,31 +265,32 @@ def check_and_log_data():
     new_data = {}
     for key, (current_value, date) in indicators.items():
         if current_value is not None:
-            new_data[key] = {
-                'value': current_value,
-                'date': date
-            }
             prev_value = prev_data.get(key, {}).get('value')
-            if prev_value is not None:
-                direction = "increase" if current_value > prev_value else "decrease"
+            if prev_value != current_value:
+                new_data[key] = {
+                    'value': current_value,
+                    'date': date
+                }
+                direction = "increase" if prev_value is not None and current_value > prev_value else "decrease"
+                impact = influence[key][direction]
+                timestamp = get_utc_plus_8_time()
+                prev_value_display = prev_value if prev_value is not None else '无记录的'
+                change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({'📈 增加' if direction == 'increase' else '📉 减少'}, {impact})"
+                
+                send_message_to_telegram(change_message)
+                logging.info(change_message)
+                updated_indicators.append(key)
             else:
-                direction = "increase"  # Treat as increase if there is no previous value
+                logging.info(f"No change in {key}, skipping update.")
 
-            impact = influence[key][direction]
-
-            timestamp = get_utc_plus_8_time()
-            prev_value_display = prev_value if prev_value is not None else '无记录的'
-            change_message = f"{key} 更新: 由 {prev_value_display} 变为 {current_value} ({'📈 增加' if direction == 'increase' else '📉 减少'}, {impact})"
-            
-            send_message_to_telegram(change_message)
-            logging.info(change_message)
-
-            updated_indicators.append(key)
-
-    # Update the data file
-    logging.info("Updating news_economic.json with new data.")
-    with open(NEWS_FILE_PATH, 'w') as file:
-        json.dump(new_data, file, ensure_ascii=False, indent=4)
+    # Update the data file only if there are changes
+    if updated_indicators:
+        updated_data = {**prev_data, **new_data}  # Merge previous data with new data
+        logging.info("Updating news_economic.json with new data.")
+        with open(NEWS_FILE_PATH, 'w') as file:
+            json.dump(updated_data, file, ensure_ascii=False, indent=4)
+    else:
+        logging.info("No changes detected in indicators, not updating news_economic.json.")
 
 if __name__ == "__main__":
     check_and_log_data()
