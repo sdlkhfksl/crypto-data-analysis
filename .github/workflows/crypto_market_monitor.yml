@@ -25,16 +25,6 @@ jobs:
       run: |
         pip install requests python-dotenv
 
-    - name: Ensure write permissions
-      run: |
-        touch news_economic.json
-        if [ -w "news_economic.json" ]; then
-          echo "news_economic.json is writable"
-        else
-          echo "news_economic.json is not writable"
-          exit 1
-        fi
-
     - name: Run Crypto Market Monitor Script
       env:
         BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
