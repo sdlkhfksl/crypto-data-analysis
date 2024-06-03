@@ -2,10 +2,11 @@ import os
 import ccxt
 import requests
 
-# 从环境变量中获取 Telegram Bot 相关信息
+# 从环境变量中获取 Telegram Bot 和新闻文本的URL
 bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
 chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 telegram_api_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
+news_url = "https://raw.githubusercontent.com/sdlkhfksl/fetch_news/main/articles_content.txt"
 
 # 初始化交易所
 exchange = ccxt.binance()
@@ -57,16 +58,26 @@ def check_conditions(symbol, exchange, news_content):
     
     return False
 
-# 请求新闻文本的URL
-news_url = "https://raw.githubusercontent.com/sdlkhfksl/fetch_news/main/articles_content.txt"
+# 获取币种在新闻文本中出现的次数
+def get_coin_occurrences(news_content, symbols):
+    coin_occurrences = {}
+    for symbol in symbols:
+        occurrences = news_content.count(symbol)
+        coin_occurrences[symbol] = occurrences
+    return coin_occurrences
+
+# 请求新闻文本
 response = requests.get(news_url)
 news_content = response.text
 
 # 获取涨幅榜前五位的标的
 top_symbols = top_gainers(symbols, exchange)
 
+# 获取币种在新闻文本中出现的次数
+coin_occurrences = get_coin_occurrences(news_content, top_symbols)
+
 # 符合条件的标的
-selected_symbols = [symbol for symbol in top_symbols if check_conditions(symbol, exchange, news_content)]
+selected_symbols = [symbol for symbol in top_symbols if check_conditions(symbol, exchange, news_content) and coin_occurrences.get(symbol, 0) > 20]
 
 # 发送满足条件的结果到 Telegram Bot
 if selected_symbols:
