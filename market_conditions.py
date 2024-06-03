@@ -13,7 +13,7 @@ exchange = ccxt.coinbase()
 
 # 获取市场数据
 markets = exchange.load_markets()
-symbols = [symbol for symbol in markets if '-USD' in symbol and markets[symbol]['active']]
+symbols = [symbol for symbol in markets if '-USD' in symbol and markets[symbol].get('active', False)]
 
 # 获取涨幅榜前五位的标的
 def top_gainers(symbols, exchange, limit=5):
@@ -28,11 +28,15 @@ def top_gainers(symbols, exchange, limit=5):
 
 # 获取前一天的成交量和价格
 def fetch_previous_day_data(symbol, exchange):
-    ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1d', limit=2)
-    previous_day = ohlcv[-2]
-    previous_volume = previous_day[5]  # 第6列是成交量
-    previous_close = previous_day[4]  # 第5列是收盘价
-    return previous_volume, previous_close
+    try:
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1d', limit=2)
+        previous_day = ohlcv[-2]
+        previous_volume = previous_day[5]  # 第6列是成交量
+        previous_close = previous_day[4]  # 第5列是收盘价
+        return previous_volume, previous_close
+    except Exception as e:
+        print(f"Error fetching previous day data for {symbol}: {e}")
+        return None, None
 
 # 检查标的是否符合条件
 def check_conditions(symbol, exchange, news_content):
@@ -54,6 +58,8 @@ def check_conditions(symbol, exchange, news_content):
             return False
         
         previous_day_circulating_supply, _ = fetch_previous_day_data(symbol, exchange)
+        if previous_day_circulating_supply is None:
+            return False
         
         # 计算流通量比
         circulating_supply_ratio = circulating_supply / previous_day_circulating_supply
