@@ -1,14 +1,11 @@
-name: Crypto News Analysis
+name: Check Market Conditions
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # 每30分钟运行一次
-  push:
-    branches:
-      - main
+    - cron: "*/5 * * * *"
 
 jobs:
-  build:
+  check_conditions:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,20 +15,15 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: '3.x'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Download SpaCy model
-      run: python -m spacy download en_core_web_sm
+        python -m pip install ccxt requests
 
     - name: Run script
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        RSS_FEED_URL: ${{ secrets.RSS_FEED_URL }}
-      run: |
-        python main.py
+      run: python market_conditions.py
