@@ -8,12 +8,12 @@ chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 telegram_api_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 news_url = "https://raw.githubusercontent.com/sdlkhfksl/fetch_news/main/articles_content.txt"
 
-# 初始化交易所
-exchange = ccxt.binance()
+# 初始化交易所（使用Coinbase Pro）
+exchange = ccxt.coinbasepro()
 
 # 获取市场数据
 markets = exchange.load_markets()
-symbols = [symbol for symbol in markets if '/USDT' in symbol]
+symbols = [symbol for symbol in markets if '-USD' in symbol]
 
 # 获取涨幅榜前五位的标的
 def top_gainers(symbols, exchange, limit=5):
