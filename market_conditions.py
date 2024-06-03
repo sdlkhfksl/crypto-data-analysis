@@ -8,12 +8,12 @@ chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 telegram_api_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 news_url = "https://raw.githubusercontent.com/sdlkhfksl/fetch_news/main/articles_content.txt"
 
-# 初始化交易所（使用Coinbase）
+# 初始化交易所（使用Kraken）
 exchange = ccxt.kraken()
 
 # 获取市场数据
 markets = exchange.load_markets()
-symbols = [symbol for symbol in markets if '-USD' in symbol and markets[symbol].get('active', False)]
+symbols = [symbol for symbol in markets if '/USD' in symbol and markets[symbol].get('active', False)]
 
 # 获取涨幅榜前五位的标的
 def top_gainers(symbols, exchange, limit=5):
@@ -77,8 +77,8 @@ def check_conditions(symbol, exchange, news_content):
 def get_coin_occurrences(news_content, symbols):
     coin_occurrences = {}
     for symbol in symbols:
-        # 将符号转换为币种名称（例如，'BTC-USD' 转换为 'BTC'）
-        coin_name = symbol.split('-')[0]
+        # 将符号转换为币种名称（例如，'BTC/USD' 转换为 'BTC'）
+        coin_name = symbol.split('/')[0]
         occurrences = news_content.count(coin_name)
         coin_occurrences[symbol] = occurrences
     return coin_occurrences
