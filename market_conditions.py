@@ -19,8 +19,8 @@ symbols = [symbol for symbol in markets if '-USD' in symbol and markets[symbol].
 def top_gainers(symbols, exchange, limit=5):
     try:
         tickers = exchange.fetch_tickers(symbols)
-        sorted_tickers = sorted(tickers.values(), key=lambda x: x['percentage'], reverse=True)
-        top_symbols = [ticker['symbol'] for ticker in sorted_tickers[:limit]]
+        sorted_tickers = sorted(tickers.values(), key=lambda x: x.get('percentage', 0), reverse=True)
+        top_symbols = [ticker['symbol'] for ticker in sorted_tickers[:limit] if ticker.get('symbol')]
         return top_symbols
     except Exception as e:
         print(f"Error fetching tickers: {e}")
@@ -49,8 +49,8 @@ def check_conditions(symbol, exchange, news_content):
         average_volume = volume_sum / 2  # 前两天的平均每天成交量
         
         # 计算相对成交量
-        today_volume = ticker['quoteVolume']
-        relative_volume = today_volume / average_volume
+        today_volume = ticker.get('quoteVolume', 0)
+        relative_volume = today_volume / average_volume if average_volume else 0
         
         # 获取昨天的流通量
         circulating_supply = ticker['info'].get('circulating_supply', None)
@@ -62,7 +62,7 @@ def check_conditions(symbol, exchange, news_content):
             return False
         
         # 计算流通量比
-        circulating_supply_ratio = circulating_supply / previous_day_circulating_supply
+        circulating_supply_ratio = circulating_supply / previous_day_circulating_supply if previous_day_circulating_supply else 0
         
         # 检查条件
         if relative_volume / circulating_supply_ratio > 2:
