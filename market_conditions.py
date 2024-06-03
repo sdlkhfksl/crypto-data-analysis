@@ -9,7 +9,7 @@ telegram_api_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 news_url = "https://raw.githubusercontent.com/sdlkhfksl/fetch_news/main/articles_content.txt"
 
 # 初始化交易所（使用Coinbase Pro）
-exchange = ccxt.coinbasepro()
+exchange = ccxt.coinbase()
 
 # 获取市场数据
 markets = exchange.load_markets()
